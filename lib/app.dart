@@ -1,0 +1,124 @@
+import 'package:flutter/material.dart';
+
+import 'audio/audio_controller.dart';
+import 'state/player_progress.dart';
+import 'state/save_service.dart';
+import 'theme/palette.dart';
+import 'theme/typography.dart';
+import 'ui/screens/boot_screen.dart';
+import 'ui/screens/level_map.dart';
+import 'ui/screens/main_menu.dart';
+import 'ui/screens/settings_screen.dart';
+import 'ui/screens/hangar_screen.dart';
+import 'ui/screens/upgrade_screen.dart';
+
+/// Gives every screen the three long lived services.
+///
+/// The game has no accounts and no server, so this is all the dependency
+/// injection it needs.
+class AppScope extends InheritedWidget {
+  const AppScope({
+    required this.audio,
+    required this.progress,
+    required this.save,
+    required super.child,
+    super.key,
+  });
+
+  final AudioController audio;
+  final PlayerProgress progress;
+  final SaveService save;
+
+  static AppScope of(BuildContext context) {
+    final scope = context.dependOnInheritedWidgetOfExactType<AppScope>();
+    assert(scope != null, 'AppScope is missing from the widget tree');
+    return scope!;
+  }
+
+  @override
+  bool updateShouldNotify(AppScope oldWidget) => false;
+}
+
+/// The root widget: theme, routes and the app lifecycle hooks that stop music
+/// when the game goes to the background.
+class NovaStrikeApp extends StatefulWidget {
+  const NovaStrikeApp({
+    required this.audio,
+    required this.progress,
+    required this.save,
+    super.key,
+  });
+
+  final AudioController audio;
+  final PlayerProgress progress;
+  final SaveService save;
+
+  @override
+  State<NovaStrikeApp> createState() => _NovaStrikeAppState();
+}
+
+class _NovaStrikeAppState extends State<NovaStrikeApp>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.paused:
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.detached:
+        widget.audio.pauseMusic();
+        widget.audio.flush();
+      case AppLifecycleState.resumed:
+        widget.audio.resumeMusic();
+      case AppLifecycleState.inactive:
+        break;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppScope(
+      audio: widget.audio,
+      progress: widget.progress,
+      save: widget.save,
+      child: MaterialApp(
+        title: 'Nova Strike',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          useMaterial3: true,
+          brightness: Brightness.dark,
+          scaffoldBackgroundColor: Palette.uiBackground,
+          colorScheme: const ColorScheme.dark(
+            primary: Palette.uiAccent,
+            secondary: Palette.uiAccentWarm,
+            surface: Palette.uiPanel,
+          ),
+          textTheme: const TextTheme(
+            bodyMedium: AppType.body,
+            titleMedium: AppType.subheading,
+          ),
+        ),
+        initialRoute: BootScreen.route,
+        routes: {
+          BootScreen.route: (_) => const BootScreen(),
+          MainMenu.route: (_) => const MainMenu(),
+          LevelMap.route: (_) => const LevelMap(),
+          SettingsScreen.route: (_) => const SettingsScreen(),
+          UpgradeScreen.route: (_) => const UpgradeScreen(),
+          HangarScreen.route: (_) => const HangarScreen(),
+        },
+      ),
+    );
+  }
+}
