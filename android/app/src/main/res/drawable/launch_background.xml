@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The window the system shows before Flutter has drawn anything. Deep space
+     with the ship centred on it, so the handover to the loading screen is a
+     continuation rather than a cut. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/space_deep" />
+    <item>
+        <bitmap
+            android:gravity="center"
+            android:src="@drawable/launch_mark" />
+    </item>
+</layer-list>
