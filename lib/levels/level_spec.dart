@@ -8,7 +8,7 @@
 /// finds normal too steep has somewhere to go that is not quitting, and one
 /// who finds it too soft has a reason to come back to a level they have
 /// already beaten.
-enum Difficulty { easy, normal, hard }
+enum Difficulty { easy, medium, hard }
 
 /// What sort of level this is. Every 15th level in a chapter is a boss, the
 /// 14th is an elite swarm, the rest are normal.
@@ -203,7 +203,7 @@ class LevelSpec {
     required this.musicTrack,
     this.modifier = LevelModifier.none,
     this.obstacleRate = 0,
-    this.difficulty = Difficulty.normal,
+    this.difficulty = Difficulty.medium,
   });
 
   final int number;

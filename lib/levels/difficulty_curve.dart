@@ -844,9 +844,9 @@ class DifficultyTuning {
   const DifficultyTuning._();
 
   /// The setting a new player starts on.
-  static const Difficulty starting = Difficulty.normal;
+  static const Difficulty starting = Difficulty.medium;
 
-  /// Hard stays shut until the player has taken normal past its first boss.
+  /// Hard stays shut until the player has taken medium past its first boss.
   ///
   /// Offering it from the menu of a game nobody has played yet is how a player
   /// picks it once, loses eight times and stops.
@@ -872,7 +872,7 @@ class DifficultyTuning {
     switch (difficulty) {
       case Difficulty.easy:
         return easyHp;
-      case Difficulty.normal:
+      case Difficulty.medium:
         return 1;
       case Difficulty.hard:
         return hardHp;
@@ -883,7 +883,7 @@ class DifficultyTuning {
     switch (difficulty) {
       case Difficulty.easy:
         return easySpeed;
-      case Difficulty.normal:
+      case Difficulty.medium:
         return 1;
       case Difficulty.hard:
         return hardSpeed;
@@ -894,7 +894,7 @@ class DifficultyTuning {
     switch (difficulty) {
       case Difficulty.easy:
         return easyFireRate;
-      case Difficulty.normal:
+      case Difficulty.medium:
         return 1;
       case Difficulty.hard:
         return hardFireRate;
@@ -905,7 +905,7 @@ class DifficultyTuning {
     switch (difficulty) {
       case Difficulty.easy:
         return easyBulletSpeed;
-      case Difficulty.normal:
+      case Difficulty.medium:
         return 1;
       case Difficulty.hard:
         return hardBulletSpeed;
@@ -918,7 +918,7 @@ class DifficultyTuning {
     switch (difficulty) {
       case Difficulty.easy:
         return easyCoin;
-      case Difficulty.normal:
+      case Difficulty.medium:
         return 1;
       case Difficulty.hard:
         return hardCoin;
@@ -930,7 +930,7 @@ class DifficultyTuning {
     switch (difficulty) {
       case Difficulty.easy:
         return easyLives;
-      case Difficulty.normal:
+      case Difficulty.medium:
         return 0;
       case Difficulty.hard:
         return hardLives;
@@ -942,8 +942,8 @@ class DifficultyTuning {
     switch (difficulty) {
       case Difficulty.easy:
         return 'EASY';
-      case Difficulty.normal:
-        return 'NORMAL';
+      case Difficulty.medium:
+        return 'MEDIUM';
       case Difficulty.hard:
         return 'HARD';
     }
@@ -952,14 +952,14 @@ class DifficultyTuning {
   /// One line of plain English about what the setting costs and pays.
   static String describe(Difficulty difficulty) {
     switch (difficulty) {
+      // Kept to two lines on a phone. A third pushed the last button on the
+      // menu below the fold.
       case Difficulty.easy:
-        return 'Lighter hulls, less fire, two extra lives. Pays 30 per cent '
-            'less.';
-      case Difficulty.normal:
+        return 'Lighter hulls, less fire, 2 more lives. Pays 30% less.';
+      case Difficulty.medium:
         return 'The game as it was tuned.';
       case Difficulty.hard:
-        return 'Heavier hulls, far more fire, one life fewer. Pays 75 per '
-            'cent more.';
+        return 'Heavier hulls, far more fire, 1 life fewer. Pays 75% more.';
     }
   }
 }

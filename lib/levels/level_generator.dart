@@ -21,7 +21,7 @@ class LevelGenerator {
   /// Builds the spec for [levelNumber], honouring any handcrafted override.
   static LevelSpec generate(
     int levelNumber, {
-    Difficulty difficulty = Difficulty.normal,
+    Difficulty difficulty = Difficulty.medium,
   }) {
     final level = levelNumber.clamp(1, Tuning.totalLevels);
     final override = Handcrafted.levels[level];
@@ -39,7 +39,7 @@ class LevelGenerator {
   /// way, because a tutorial level that ignored the setting would be the one
   /// place the player could not tell it had taken.
   static LevelSpec _atDifficulty(LevelSpec spec, Difficulty difficulty) {
-    if (difficulty == Difficulty.normal) {
+    if (difficulty == Difficulty.medium) {
       return spec;
     }
     return LevelSpec(
@@ -69,7 +69,7 @@ class LevelGenerator {
 
   /// Generates a level without consulting the handcrafted overrides. Exposed
   /// so the overrides can build on top of generated content.
-  static LevelSpec build(int level, {Difficulty difficulty = Difficulty.normal}) {
+  static LevelSpec build(int level, {Difficulty difficulty = Difficulty.medium}) {
     final rng = Random(level * seedMultiplier + seedOffset);
     final chapter = Tuning.chapterOf(level);
     final kind = Tuning.kindOf(level);

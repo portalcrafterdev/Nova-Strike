@@ -42,7 +42,7 @@ void main() {
     test('works with no plugin behind it', () {
       final service = SaveService();
       expect(service.isReady, isFalse);
-      expect(service.loadHighestLevel(Difficulty.normal), 1);
+      expect(service.loadHighestLevel(Difficulty.medium), 1);
       expect(service.loadCoins(), 0);
       expect(service.loadAudioSettings(), AudioSettings());
     });
@@ -153,7 +153,7 @@ void main() {
       await save.init();
 
       expect(save.version, SaveService.currentVersion);
-      expect(save.loadHighestLevel(Difficulty.normal), 42);
+      expect(save.loadHighestLevel(Difficulty.medium), 42);
       expect(save.loadCoins(), 800);
     });
 

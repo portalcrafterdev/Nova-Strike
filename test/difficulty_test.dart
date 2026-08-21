@@ -135,10 +135,10 @@ void main() {
       // The keys the old single campaign wrote have to stay exactly as they
       // were, or every existing player loses their progress.
       expect(
-        SaveService.levelKeyFor(Difficulty.normal),
+        SaveService.levelKeyFor(Difficulty.medium),
         SaveService.keyHighestLevel,
       );
-      expect(SaveService.starsKeyFor(Difficulty.normal), SaveService.keyStars);
+      expect(SaveService.starsKeyFor(Difficulty.medium), SaveService.keyStars);
     });
 
     test('progress written at one setting reads back after a restart', () {
@@ -172,9 +172,9 @@ void main() {
 
     test('a new player starts on normal with easy open and hard shut', () async {
       final progress = await _progress();
-      expect(progress.difficulty, Difficulty.normal);
+      expect(progress.difficulty, Difficulty.medium);
       expect(progress.isAvailable(Difficulty.easy), isTrue);
-      expect(progress.isAvailable(Difficulty.normal), isTrue);
+      expect(progress.isAvailable(Difficulty.medium), isTrue);
       expect(progress.isAvailable(Difficulty.hard), isFalse);
     });
 
@@ -193,9 +193,9 @@ void main() {
         await progress.completeLevel(level: level, stars: 3, coinsEarned: 0);
       }
       expect(progress.highestLevelIn(Difficulty.easy), 11);
-      expect(progress.highestLevelIn(Difficulty.normal), 1);
+      expect(progress.highestLevelIn(Difficulty.medium), 1);
 
-      await progress.setDifficulty(Difficulty.normal);
+      await progress.setDifficulty(Difficulty.medium);
       expect(progress.isUnlocked(5), isFalse);
       expect(progress.starsFor(5), 0);
     });
@@ -216,7 +216,7 @@ void main() {
       await progress.completeLevel(level: 1, stars: 1, coinsEarned: 500);
       final purse = progress.coins;
 
-      await progress.setDifficulty(Difficulty.normal);
+      await progress.setDifficulty(Difficulty.medium);
       expect(progress.coins, purse);
     });
 
@@ -227,8 +227,8 @@ void main() {
         SaveService.keyHighestLevel: 42,
         SaveService.keyStars: '333',
       });
-      expect(progress.difficulty, Difficulty.normal);
-      expect(progress.highestLevelIn(Difficulty.normal), 42);
+      expect(progress.difficulty, Difficulty.medium);
+      expect(progress.highestLevelIn(Difficulty.medium), 42);
       expect(progress.starsFor(2), 3);
       expect(progress.highestLevelIn(Difficulty.easy), 1);
     });

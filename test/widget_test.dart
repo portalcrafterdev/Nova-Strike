@@ -3,7 +3,9 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:novastrike/app.dart';
 import 'package:novastrike/audio/audio_controller.dart';
+import 'package:novastrike/levels/difficulty_curve.dart';
 import 'package:novastrike/levels/level_generator.dart';
+import 'package:novastrike/levels/level_spec.dart';
 import 'package:novastrike/state/player_progress.dart';
 import 'package:novastrike/game/nova_game.dart';
 import 'package:novastrike/state/save_service.dart';
@@ -47,6 +49,38 @@ void main() {
     expect(find.text('ENDLESS'), findsOneWidget);
     expect(find.text('HANGAR'), findsOneWidget);
     expect(find.textContaining('LEVEL 1 OF 1500'), findsOneWidget);
+  });
+
+  testWidgets('the menu picks the setting before it offers PLAY', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+
+    final scope = await scopeFor(const MainMenu());
+    await tester.pumpWidget(scope);
+    await tester.pump();
+
+    expect(tester.takeException(), isNull, reason: 'the menu does not lay out');
+    for (final difficulty in Difficulty.values) {
+      expect(
+        find.text(DifficultyTuning.labelOf(difficulty)),
+        findsOneWidget,
+        reason: '${difficulty.name} is not offered on the menu',
+      );
+    }
+    expect(scope.progress.difficulty, DifficultyTuning.starting);
+
+    // Easy is open from the start. Hard is not, and tapping it must do
+    // nothing rather than quietly dropping the player into it.
+    await tester.tap(find.text(DifficultyTuning.labelOf(Difficulty.hard)));
+    await tester.pump();
+    expect(scope.progress.difficulty, DifficultyTuning.starting);
+
+    await tester.tap(find.text(DifficultyTuning.labelOf(Difficulty.easy)));
+    await tester.pump();
+    expect(scope.progress.difficulty, Difficulty.easy);
   });
 
   testWidgets('the settings screen has one slider per channel', (tester) async {

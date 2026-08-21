@@ -155,12 +155,12 @@ class SaveService {
   /// Normal keeps the original key. It is the setting every existing save was
   /// written at, and moving it would throw that progress away.
   static String levelKeyFor(Difficulty difficulty) =>
-      difficulty == Difficulty.normal
+      difficulty == Difficulty.medium
       ? keyHighestLevel
       : '${keyHighestLevel}_${difficulty.name}';
 
   static String starsKeyFor(Difficulty difficulty) =>
-      difficulty == Difficulty.normal
+      difficulty == Difficulty.medium
       ? keyStars
       : '${keyStars}_${difficulty.name}';
 
@@ -173,12 +173,17 @@ class SaveService {
 
   Difficulty loadDifficulty() {
     final name = _prefs?.getString(keyDifficulty);
+    // The middle setting was called normal in the build that first wrote this,
+    // so a save from then still names it that. It is the same setting.
+    if (name == 'normal') {
+      return Difficulty.medium;
+    }
     for (final difficulty in Difficulty.values) {
       if (difficulty.name == name) {
         return difficulty;
       }
     }
-    return Difficulty.normal;
+    return Difficulty.medium;
   }
 
   Future<void> saveDifficulty(Difficulty difficulty) async {

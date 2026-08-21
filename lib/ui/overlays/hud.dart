@@ -77,7 +77,7 @@ class _HudState extends State<Hud> with SingleTickerProviderStateMixin {
                         ValueListenableBuilder<int>(
                           valueListenable: game.levelNotifier,
                           builder: (context, level, _) => Text(
-                            game.progress.difficulty == Difficulty.normal
+                            game.progress.difficulty == Difficulty.medium
                                 ? 'LEVEL $level'
                                 : 'LEVEL $level  '
                                       '${DifficultyTuning.labelOf(game.progress.difficulty)}',

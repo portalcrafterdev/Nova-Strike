@@ -7,12 +7,12 @@ import '../../theme/palette.dart';
 import '../../theme/typography.dart';
 import 'nova_button.dart';
 
-/// The three settings, as one row of pills above the level list.
+/// The three settings, as one row of pills.
 ///
-/// It sits on the level map rather than in the settings screen on purpose. The
-/// setting decides which campaign the levels below it belong to, so the place
-/// to change it is the place the player is looking at those levels, and the row
-/// underneath shows the change take effect straight away.
+/// It sits on the menu above PLAY and again on the level map, rather than in
+/// the settings screen. The setting decides which campaign the player is in, so
+/// the place to change it is the place they are about to enter one from, and on
+/// the map the levels underneath show the change take effect straight away.
 class DifficultyBar extends StatelessWidget {
   const DifficultyBar({
     required this.progress,
@@ -54,7 +54,7 @@ class DifficultyBar extends StatelessWidget {
             progress.isAvailable(Difficulty.hard)
                 ? DifficultyTuning.describe(chosen)
                 : 'Reach level ${DifficultyTuning.hardUnlockLevel + 1} on '
-                      'normal to unlock hard',
+                      'medium to unlock hard',
             textAlign: TextAlign.center,
             style: AppType.bodyDim,
           ),

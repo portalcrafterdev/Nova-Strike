@@ -95,6 +95,22 @@ void _paintLogo(
     return;
   }
 
+  // The light the hull sits in, and only ever over the sky. On the adaptive
+  // foreground it came out as a pale disc of haze around the ship, which a
+  // launcher then masked and drew over whatever wallpaper the player has.
+  if (background) {
+    canvas.drawCircle(
+      middle,
+      size * 0.44,
+      Paint()
+        ..blendMode = BlendMode.plus
+        ..shader = Gradient.radial(middle, size * 0.44, [
+          Palette.glow,
+          const Color(0x00000000),
+        ]),
+    );
+  }
+
   // The exhaust plume. The old mark was a hull sitting still: a shape, not a
   // ship going anywhere. A tapered trail out of the tail gives the icon a
   // direction and puts one warm note against all the blue.
@@ -116,22 +132,6 @@ void _paintLogo(
         [Palette.thrusterHot, Palette.thruster.withValues(alpha: 0)],
       ),
   );
-
-  // The light the hull sits in, and only ever over the sky. On the adaptive
-  // foreground it came out as a pale disc of haze around the ship, which a
-  // launcher then masked and drew over whatever wallpaper the player has.
-  if (background) {
-    canvas.drawCircle(
-      middle,
-      size * 0.44,
-      Paint()
-        ..blendMode = BlendMode.plus
-        ..shader = Gradient.radial(middle, size * 0.44, [
-          Palette.glow,
-          const Color(0x00000000),
-        ]),
-    );
-  }
 
   // Fitted to the hull's own bounds rather than to a guessed constant, so a
   // change to the shape cannot quietly leave the mark rattling around inside

@@ -5,6 +5,7 @@ import '../../audio/sfx.dart';
 import '../../levels/difficulty_curve.dart';
 import '../../theme/palette.dart';
 import '../../theme/typography.dart';
+import '../widgets/difficulty_bar.dart';
 import '../widgets/nova_button.dart';
 import '../widgets/ship_mark.dart';
 import '../widgets/star_field.dart';
@@ -71,7 +72,18 @@ class MainMenu extends StatelessWidget {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 34),
+                      const SizedBox(height: 22),
+                      // The setting sits directly above PLAY, because it
+                      // decides what PLAY is about to hand the player and it
+                      // changes the level number in the line above it.
+                      DifficultyBar(
+                        progress: progress,
+                        onChanged: (difficulty) {
+                          scope.audio.play(Sfx.buttonTap);
+                          progress.setDifficulty(difficulty);
+                        },
+                      ),
+                      const SizedBox(height: 10),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [

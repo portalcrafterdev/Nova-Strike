@@ -193,7 +193,7 @@ class BossCatalog {
   /// repeat of an archetype adds hit points, speed and one attack pattern.
   static BossSpec build(
     int level, {
-    Difficulty difficulty = Difficulty.normal,
+    Difficulty difficulty = Difficulty.medium,
   }) {
     final chapter = Tuning.chapterOf(level);
     final index = (chapter - 1) % Tuning.bossArchetypeCount;

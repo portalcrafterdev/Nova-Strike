@@ -108,11 +108,11 @@ class PlayerProgress extends ChangeNotifier {
   /// Whether a setting can be chosen yet.
   ///
   /// Easy and normal are always open. Hard waits until the player has taken
-  /// normal past its first boss, because a setting that beats a new player
+  /// medium past its first boss, because a setting that beats a new player
   /// eight times running is not a choice, it is a trap.
   bool isAvailable(Difficulty difficulty) =>
       difficulty != Difficulty.hard ||
-      _highest[Difficulty.normal]! > DifficultyTuning.hardUnlockLevel;
+      _highest[Difficulty.medium]! > DifficultyTuning.hardUnlockLevel;
 
   /// Switches setting. Each one keeps its own place in the campaign, so this
   /// never moves the player forward or back through levels they have earned.
