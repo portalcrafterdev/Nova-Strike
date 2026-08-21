@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The same deep space the game is played in. It is here so the window
+         behind Flutter is never white: a white flash before the first frame
+         is the one thing that gives away that a game is a Flutter app. -->
+    <color name="space_deep">#FF04060F</color>
+</resources>
