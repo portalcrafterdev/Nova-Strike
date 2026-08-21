@@ -31,8 +31,17 @@ final Sprite2D _hull = Sprites.ship(
 ///
 /// Two values, because an adaptive icon is masked to a circle and anything
 /// outside the middle two thirds can be cut off by the launcher.
-const double _fullBleed = 0.74;
-const double _safeZone = 0.46;
+///
+/// Both were bigger. The hull is mostly wing, so a ship sized to fill the
+/// frame put two pale triangles in the corners and left nothing for the eye to
+/// land on. Pulled in, the silhouette reads as a ship at the size a launcher
+/// actually draws it.
+const double _fullBleed = 0.62;
+const double _safeZone = 0.40;
+
+/// A colour with more of itself in it, for the nebulae behind the mark.
+Color _lift(Color base, double amount) =>
+    base.withValues(alpha: (base.a + amount).clamp(0.0, 1.0));
 
 /// Paints the logo into [size] pixels square.
 ///
@@ -50,23 +59,35 @@ void _paintLogo(
 
   if (background) {
     canvas.drawRect(rect, Paint()..color = Palette.spaceDeep);
+    // Two nebulae on opposite corners. Stronger and further apart than they
+    // were: at icon size a wash this subtle just read as flat navy.
     canvas.drawRect(
       rect,
       Paint()
         ..shader = Gradient.radial(
-          Offset(size * 0.34, size * 0.30),
-          size * 0.78,
-          [Palette.menuNebulaA, const Color(0x00000000)],
+          Offset(size * 0.26, size * 0.20),
+          size * 0.92,
+          [_lift(Palette.menuNebulaA, 0.55), const Color(0x00000000)],
         ),
     );
     canvas.drawRect(
       rect,
       Paint()
         ..shader = Gradient.radial(
-          Offset(size * 0.74, size * 0.76),
-          size * 0.62,
-          [Palette.menuNebulaB, const Color(0x00000000)],
+          Offset(size * 0.80, size * 0.84),
+          size * 0.78,
+          [_lift(Palette.menuNebulaB, 0.5), const Color(0x00000000)],
         ),
+    );
+    // A vignette, so the corners drop away and the middle is where the eye
+    // goes. It also stops the icon fighting whatever mask a launcher puts on.
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..shader = Gradient.radial(middle, size * 0.72, [
+          const Color(0x00000000),
+          Palette.spaceDeep.withValues(alpha: 0.85),
+        ], const [0.55, 1.0]),
     );
   }
 
@@ -74,17 +95,43 @@ void _paintLogo(
     return;
   }
 
-  // The light the hull sits in. Without it the ship reads as pasted on rather
-  // than as the brightest thing in the frame.
-  canvas.drawCircle(
-    middle,
-    size * 0.42,
+  // The exhaust plume. The old mark was a hull sitting still: a shape, not a
+  // ship going anywhere. A tapered trail out of the tail gives the icon a
+  // direction and puts one warm note against all the blue.
+  final plumeTop = size * (0.5 + ship * 0.16);
+  canvas.drawPath(
+    Path()
+      ..moveTo(size * 0.5 - size * ship * 0.13, plumeTop)
+      ..lineTo(size * 0.5 + size * ship * 0.13, plumeTop)
+      ..lineTo(size * 0.5 + size * ship * 0.03, size * 0.93)
+      ..lineTo(size * 0.5 - size * ship * 0.03, size * 0.93)
+      ..close(),
     Paint()
-      ..shader = Gradient.radial(middle, size * 0.42, [
-        Palette.glow,
-        const Color(0x00000000),
-      ]),
+      // Light adds over the sky. Over nothing it only washes out, and the
+      // adaptive foreground layer is drawn over nothing.
+      ..blendMode = background ? BlendMode.plus : BlendMode.srcOver
+      ..shader = Gradient.linear(
+        Offset(size * 0.5, plumeTop),
+        Offset(size * 0.5, size * 0.93),
+        [Palette.thrusterHot, Palette.thruster.withValues(alpha: 0)],
+      ),
   );
+
+  // The light the hull sits in, and only ever over the sky. On the adaptive
+  // foreground it came out as a pale disc of haze around the ship, which a
+  // launcher then masked and drew over whatever wallpaper the player has.
+  if (background) {
+    canvas.drawCircle(
+      middle,
+      size * 0.44,
+      Paint()
+        ..blendMode = BlendMode.plus
+        ..shader = Gradient.radial(middle, size * 0.44, [
+          Palette.glow,
+          const Color(0x00000000),
+        ]),
+    );
+  }
 
   // Fitted to the hull's own bounds rather than to a guessed constant, so a
   // change to the shape cannot quietly leave the mark rattling around inside

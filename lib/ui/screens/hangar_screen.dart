@@ -150,7 +150,10 @@ class _ShipCard extends StatelessWidget {
               _Trait(label: 'DAMAGE', value: ship.damage),
               _Trait(label: 'HANDLING', value: ship.speed),
               _Lives(bonus: ship.livesBonus),
-              const Spacer(),
+              // A gap rather than a Spacer. These cards are in a scrolling
+              // list, so they have no height to push against, and a Spacer
+              // there throws on every card and takes the whole screen with it.
+              const SizedBox(height: 8),
               Text(
                 selected
                     ? 'FLYING'

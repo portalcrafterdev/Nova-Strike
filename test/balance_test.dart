@@ -5,6 +5,9 @@ import 'package:novastrike/levels/enemy_catalog.dart';
 import 'package:novastrike/levels/level_generator.dart';
 import 'package:novastrike/levels/level_spec.dart';
 import 'package:novastrike/state/player_progress.dart';
+import 'package:novastrike/state/save_service.dart';
+import 'package:novastrike/theme/palette.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Damage per second for a ship carrying the given upgrade tiers.
 double dpsAt({required int fire, required int damage, required int count}) {
@@ -118,6 +121,49 @@ void main() {
       final seconds = bossPool(15) / affordableDps(15);
       expect(seconds, greaterThan(8), reason: "too short to feel like a boss");
       expect(seconds, lessThan(30), reason: "a wall, not a fight");
+    });
+  });
+
+  group('a gem is never worse than not picking it up', () {
+    test('the laser keeps up with the guns it replaces', () async {
+      // The beam used to be a flat forty two a second while the guns climbed
+      // to five hundred and seventy three, so picking the gem up on a bought
+      // ship cut the player to seven per cent of their own damage and stopped
+      // their bullets as well. That is a gem that reads as a broken weapon.
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final save = SaveService();
+      await save.init();
+      final progress = PlayerProgress(save)..load();
+
+      for (var tier = 0; tier <= Tuning.upgradeMaxTier; tier++) {
+        while (progress.tierOf(UpgradeId.fireRate) < tier) {
+          await progress.addCoins(100000);
+          progress.buyUpgrade(UpgradeId.fireRate);
+          progress.buyUpgrade(UpgradeId.damage);
+          progress.buyUpgrade(UpgradeId.bulletCount);
+        }
+        final share = progress.laserDamagePerSecond / progress.gunDamagePerSecond;
+        expect(
+          share,
+          closeTo(Tuning.laserDpsFraction, 0.001),
+          reason: 'the beam drifts from the guns at tier $tier',
+        );
+        expect(
+          share,
+          greaterThan(0.7),
+          reason: 'picking up the laser at tier $tier is a downgrade',
+        );
+      }
+    });
+
+    test('the beam is drawn far narrower than the column it burns', () {
+      // What went wrong was not the width it hits at, it was the width it was
+      // painted at: a flat slab a tenth of the screen across.
+      expect(Metrics.laserCoreWidth, lessThan(0.2));
+      expect(Metrics.laserBodyWidth, lessThan(0.5));
+      // The halo still shows the true reach, so the beam does not lie about
+      // what it is hitting.
+      expect(Metrics.laserHaloAlpha, greaterThan(0));
     });
   });
 

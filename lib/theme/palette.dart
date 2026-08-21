@@ -112,6 +112,10 @@ class Palette {
   static const Color shieldRing = Color(0xFF5CE1B0);
   static const Color laserBeam = Color(0xFFFF6BD6);
 
+  /// The white hot middle of the beam. The three passes are added together, so
+  /// this sits on top of the body colour rather than replacing it.
+  static const Color laserCore = Color(0xFFFFE4F6);
+
   /// The keyline drawn round every sprite.
   ///
   /// A flat shape has no shading to separate it from what is behind it, so the
@@ -310,7 +314,31 @@ class Metrics {
   static const double powerUpRadius = 8;
   static const double coinRadius = 5;
   static const double shieldRadius = 24;
+  /// Half width of the column the beam burns, in world units. The look below
+  /// is measured against it, so what is drawn and what is hit stay in step.
   static const double laserWidth = 9;
+
+  /// The three passes, as a share of that half width.
+  ///
+  /// The halo is drawn at the full width on purpose: it is faint, and it is
+  /// the only thing telling the player how wide the column they are burning
+  /// actually is. The body and the core are far narrower, which is what turns
+  /// a slab of colour into a beam.
+  static const double laserBodyWidth = 0.34;
+  static const double laserCoreWidth = 0.12;
+  static const double laserHaloAlpha = 0.11;
+
+  /// How many nested bands the halo is built from. More is a softer edge and
+  /// one more rectangle a frame, which is nothing next to a screen of bullets.
+  static const int laserHaloSteps = 4;
+  static const double laserBodyAlpha = 0.5;
+
+  /// The flicker, in radians per second and as a share of the width.
+  static const double laserPulseRate = 22;
+  static const double laserPulseDepth = 0.12;
+
+  /// The flare at the muzzle, as a share of the beam half width.
+  static const double laserFlareRadius = 1.15;
 
   // Wreckage. A dead ship comes apart into the triangles it was built from.
   static const double debrisLifespan = 1.1;
@@ -388,16 +416,6 @@ class Metrics {
 
   /// How fast the ship pulls away down the lane at full warp.
   static const double warpShipSpeed = 900;
-
-  /// How far the ship banks into a turn, at full speed across the lane.
-  static const double playerBankAngle = 0.55;
-
-  /// How much of that bank shows as the nose swinging round on the screen.
-  ///
-  /// A flat hull has no wing to dip, so the lean has to read as a turn. Kept
-  /// well under a right angle: past about fifteen degrees the ship stops
-  /// looking like it is leaning and starts looking like it is aimed away.
-  static const double playerBankYaw = 0.45;
 
   /// How far and how fast a boss sways on the spot, so a hull holding station
   /// still reads as something under power.

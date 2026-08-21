@@ -74,15 +74,18 @@ class _NovaStrikeAppState extends State<NovaStrikeApp>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
+      // Anything short of being on screen and in the player's hands counts as
+      // gone. Inactive is in that list on purpose: it is the state a phone call
+      // arriving or the notification shade coming down puts the app into, and
+      // a game that keeps playing its battle music over a phone call is the
+      // same fault as one that keeps playing after the home button.
+      case AppLifecycleState.inactive:
       case AppLifecycleState.paused:
       case AppLifecycleState.hidden:
       case AppLifecycleState.detached:
-        widget.audio.pauseMusic();
-        widget.audio.flush();
+        widget.audio.setAppVisible(false);
       case AppLifecycleState.resumed:
-        widget.audio.resumeMusic();
-      case AppLifecycleState.inactive:
-        break;
+        widget.audio.setAppVisible(true);
     }
   }
 

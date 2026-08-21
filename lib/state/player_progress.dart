@@ -366,6 +366,17 @@ class PlayerProgress extends ChangeNotifier {
   double get followLerp =>
       (Tuning.playerFollowLerp * ship.speed).clamp(0.05, 0.6);
 
+  /// What the guns put out per second with nothing picked up.
+  ///
+  /// The beam is priced against this rather than against a fixed number, so a
+  /// gem never makes a bought ship worse than it was without it.
+  double get gunDamagePerSecond =>
+      bulletDamage * bulletStreams / fireInterval;
+
+  /// What the laser beam burns through per second, per thing standing in it.
+  double get laserDamagePerSecond =>
+      gunDamagePerSecond * Tuning.laserDpsFraction;
+
   /// Streams of fire before any power-up is applied.
   int get bulletStreams {
     final tier = tierOf(UpgradeId.bulletCount);

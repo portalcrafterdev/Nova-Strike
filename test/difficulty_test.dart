@@ -112,6 +112,64 @@ void main() {
   });
 
   group('progress is kept per setting', () {
+    test('every setting stores its progress under its own key', () {
+      // These are built by interpolating the setting into the base key. When
+      // that interpolation was lost, easy and hard both collapsed onto one key
+      // that was written as an int by the level and read as a string by the
+      // stars. The first launch after a save had been written threw out of
+      // main, before runApp, and the game came up blank.
+      final keys = <String>{};
+      for (final difficulty in Difficulty.values) {
+        for (final key in [
+          SaveService.levelKeyFor(difficulty),
+          SaveService.starsKeyFor(difficulty),
+        ]) {
+          expect(key, isNotEmpty);
+          expect(
+            keys.add(key),
+            isTrue,
+            reason: '$key is used for more than one thing',
+          );
+        }
+      }
+      // The keys the old single campaign wrote have to stay exactly as they
+      // were, or every existing player loses their progress.
+      expect(
+        SaveService.levelKeyFor(Difficulty.normal),
+        SaveService.keyHighestLevel,
+      );
+      expect(SaveService.starsKeyFor(Difficulty.normal), SaveService.keyStars);
+    });
+
+    test('progress written at one setting reads back after a restart', () {
+      // Reading is what broke, and it only broke on the second launch, so this
+      // writes with the real service and then reads with a fresh one.
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      return SharedPreferences.getInstance().then((prefs) async {
+        final save = SaveService();
+        await save.init();
+        for (final difficulty in Difficulty.values) {
+          await save.saveHighestLevel(difficulty, 20 + difficulty.index);
+          await save.saveStars(difficulty, '${difficulty.index}23');
+        }
+
+        final reopened = SaveService();
+        await reopened.init();
+        for (final difficulty in Difficulty.values) {
+          expect(
+            reopened.loadHighestLevel(difficulty),
+            20 + difficulty.index,
+            reason: 'the level at ${difficulty.name} did not survive',
+          );
+          expect(
+            reopened.loadStars(difficulty),
+            '${difficulty.index}23',
+            reason: 'the stars at ${difficulty.name} did not survive',
+          );
+        }
+      });
+    });
+
     test('a new player starts on normal with easy open and hard shut', () async {
       final progress = await _progress();
       expect(progress.difficulty, Difficulty.normal);

@@ -228,6 +228,38 @@ void main() {
     }
 
     testWithGame<NovaGame>(
+      'the ship stays pointed up the lane however hard it is thrown about',
+      () => buildGame(1),
+      (game) async {
+        await game.ready();
+        await tick(game, 1);
+
+        final camera = GameCamera(
+          viewportWidth: Metrics.worldWidth,
+          viewportHeight: Metrics.worldHeight,
+        );
+        final renderer = SpriteRenderer(camera);
+
+        // The hull used to lean into a turn. On a flat top down sprite that
+        // came out as the nose swinging away from straight up the lane, which
+        // is not where the guns fire.
+        for (final target in [-260.0, 260.0, -260.0]) {
+          game.player.aimAt(Vector3(target, 0, PlayArea.playerDepth));
+          await tick(game, 0.35);
+
+          final spy = _CanvasSpy();
+          game.player.paint(spy, renderer, camera);
+          expect(
+            spy.turns,
+            isEmpty,
+            reason:
+                'the ship is drawn at an angle while sliding toward $target',
+          );
+        }
+      },
+    );
+
+    testWithGame<NovaGame>(
       'everything the player fires flies straight up the lane',
       // Level 30 has every weapon unlocked, and the spread gem is forced on,
       // so this covers the cannon, the wing pods, the railgun and the gem at
@@ -1638,11 +1670,18 @@ class _CanvasSpy implements Canvas {
   int circles = 0;
   int lines = 0;
 
+  /// Every turn asked of the canvas, in radians. The renderer only calls this
+  /// when a sprite is drawn at an angle, so an empty list means upright.
+  final List<double> turns = [];
+
   @override
   void drawCircle(Offset c, double radius, Paint paint) => circles++;
 
   @override
   void drawLine(Offset p1, Offset p2, Paint paint) => lines++;
+
+  @override
+  void rotate(double radians) => turns.add(radians);
 
   @override
   dynamic noSuchMethod(Invocation invocation) => null;

@@ -83,8 +83,6 @@ class PlayerShip extends Component
   int _rail = 0;
   double _invulnerable = 0;
   double _blink = 0;
-  double _bank = 0;
-  double _driftX = 0;
   ShieldRing? _shield;
   LaserBeam? _laser;
 
@@ -202,8 +200,6 @@ class PlayerShip extends Component
     position.x += (0 - position.x) * math.min(1, dt * 3);
     position.y += (0 - position.y) * math.min(1, dt * 3);
     position.z += Metrics.warpShipSpeed * game.warpFactor * dt;
-    _bank += (0 - _bank) * math.min(1, dt * 6);
-    _driftX = 0;
     _trail.follow(position, dt);
   }
 
@@ -212,19 +208,16 @@ class PlayerShip extends Component
   void _moveToward(double dt) {
     final factor =
         1 - math.pow(1 - game.progress.followLerp, dt * 60).toDouble();
-    final previousX = position.x;
     position.x += (_target.x - position.x) * factor;
     position.z += (_target.z - position.z) * factor;
     position.x = PlayArea.clampX(position.x, 6);
     position.z = PlayArea.clampLane(position.z, 6);
 
-    // Lean into the turn. On a flat hull this comes out as the nose swinging
-    // toward the direction of travel, which is what reads as a ship turning
-    // rather than a ship sliding.
-    _driftX = dt > 0 ? (position.x - previousX) / dt : 0;
-    final targetBank =
-        (-_driftX / 220).clamp(-1.0, 1.0) * Metrics.playerBankAngle;
-    _bank += (targetBank - _bank) * math.min(1, dt * 8);
+    // The hull holds its heading. It used to lean into a turn, which on a flat
+    // top down sprite comes out as the nose swinging away from straight up the
+    // lane: the ship stops looking like it is leaning and starts looking like
+    // it is aimed somewhere other than where its guns fire. Everything the
+    // player shoots goes straight up the lane, so the ship points that way too.
   }
 
   void _tickPowerUps(double dt) {
@@ -546,7 +539,6 @@ class PlayerShip extends Component
       canvas,
       _sprite,
       position: position,
-      yaw: -_bank * Metrics.playerBankYaw,
       scale: Metrics.playerScale,
     );
   }
@@ -560,14 +552,24 @@ class LaserBeam extends Component
     with Renderable, HasGameReference<NovaGame> {
   LaserBeam({required this.ship});
 
-  static final Paint _core = Paint()..color = Palette.laserBeam;
-  static final Paint _glow = Paint()
-    ..color = Palette.laserBeam.withValues(alpha: 0.25);
+  /// Three passes, widest and faintest first. Light adds where it overlaps, so
+  /// the middle of the beam runs up to white on its own rather than being
+  /// painted white, which is what stops it reading as a stripe of paint.
+  static final Paint _halo = Paint()
+    ..color = Palette.laserBeam.withValues(alpha: Metrics.laserHaloAlpha)
+    ..blendMode = BlendMode.plus;
+  static final Paint _body = Paint()
+    ..color = Palette.laserBeam.withValues(alpha: Metrics.laserBodyAlpha)
+    ..blendMode = BlendMode.plus;
+  static final Paint _core = Paint()
+    ..color = Palette.laserCore
+    ..blendMode = BlendMode.plus;
 
   final PlayerShip ship;
   final Vector3 _far = Vector3.zero();
 
   double _tick = 0;
+  double _age = 0;
 
   @override
   Vector3 get worldPosition => ship.position;
@@ -589,11 +591,12 @@ class LaserBeam extends Component
 
   @override
   void update(double dt) {
+    _age += dt;
     _tick += dt;
     if (_tick < Tuning.playerLaserTickInterval) {
       return;
     }
-    final damage = Tuning.playerLaserDamagePerSecond * _tick;
+    final damage = game.progress.laserDamagePerSecond * _tick;
     _tick = 0;
 
     for (final enemy in game.enemies) {
@@ -646,22 +649,47 @@ class LaserBeam extends Component
     if (near == null || far == null) {
       return;
     }
-    final nearWidth = Metrics.laserWidth * near.scale;
-    final farWidth = Metrics.laserWidth * far.scale;
-    final path = Path()
-      ..moveTo(near.screen.dx - nearWidth, near.screen.dy)
-      ..lineTo(far.screen.dx - farWidth, far.screen.dy)
-      ..lineTo(far.screen.dx + farWidth, far.screen.dy)
-      ..lineTo(near.screen.dx + nearWidth, near.screen.dy)
-      ..close();
-    canvas.drawPath(path, _glow);
-    canvas.drawPath(
-      Path()
-        ..moveTo(near.screen.dx - nearWidth * 0.45, near.screen.dy)
-        ..lineTo(far.screen.dx - farWidth * 0.45, far.screen.dy)
-        ..lineTo(far.screen.dx + farWidth * 0.45, far.screen.dy)
-        ..lineTo(near.screen.dx + nearWidth * 0.45, near.screen.dy)
-        ..close(),
+
+    // The lens has no perspective, so the beam is a straight column and not a
+    // trapezoid. It used to be drawn as one, which cost the maths and bought a
+    // rectangle: a flat slab of colour a tenth of the screen wide.
+    final width = Metrics.laserWidth * near.scale;
+    final top = far.screen.dy;
+    final bottom = near.screen.dy;
+    final centre = near.screen.dx;
+
+    // A slow flicker, so the beam reads as something running rather than as a
+    // shape that has been left on the screen.
+    final pulse =
+        1 +
+        math.sin(_age * Metrics.laserPulseRate) * Metrics.laserPulseDepth;
+
+    void column(double halfWidth, Paint paint) {
+      canvas.drawRect(
+        Rect.fromLTRB(centre - halfWidth, top, centre + halfWidth, bottom),
+        paint,
+      );
+    }
+
+    // The halo is stepped rather than drawn as one band, so its edge falls off
+    // instead of ending on a line. The outermost step is the full width the
+    // beam hits at, so what the player can see is what the column will burn.
+    for (var step = Metrics.laserHaloSteps; step >= 1; step--) {
+      column(width * step / Metrics.laserHaloSteps, _halo);
+    }
+    column(width * Metrics.laserBodyWidth * pulse, _body);
+    column(width * Metrics.laserCoreWidth * pulse, _core);
+
+    // The flare at the muzzle, which is what makes the beam look like it is
+    // coming out of the ship rather than passing through it.
+    canvas.drawCircle(
+      Offset(centre, bottom),
+      width * Metrics.laserFlareRadius * pulse,
+      _body,
+    );
+    canvas.drawCircle(
+      Offset(centre, bottom),
+      width * Metrics.laserFlareRadius * 0.45 * pulse,
       _core,
     );
   }

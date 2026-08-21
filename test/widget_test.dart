@@ -8,8 +8,11 @@ import 'package:novastrike/state/player_progress.dart';
 import 'package:novastrike/game/nova_game.dart';
 import 'package:novastrike/state/save_service.dart';
 import 'package:novastrike/ui/overlays/pause_overlay.dart';
+import 'package:novastrike/state/ship_catalog.dart';
 import 'package:novastrike/ui/screens/game_over_sheet.dart';
+import 'package:novastrike/ui/screens/hangar_screen.dart';
 import 'package:novastrike/ui/screens/level_complete_sheet.dart';
+import 'package:novastrike/ui/screens/level_map.dart';
 import 'package:novastrike/ui/screens/main_menu.dart';
 import 'package:novastrike/ui/screens/settings_screen.dart';
 import 'package:novastrike/ui/screens/upgrade_screen.dart';
@@ -104,6 +107,130 @@ void main() {
       );
       expect(find.text(def.name), findsOneWidget);
     }
+  });
+
+  testWidgets('the hangar lays out and shows every hull', (tester) async {
+    // The cards used to end in a Spacer, which needs a height to push against
+    // and does not have one inside a scrolling list. Every card threw, and the
+    // screen came up empty. There was no test on this screen at all, which is
+    // how it shipped.
+    await tester.pumpWidget(await scopeFor(const HangarScreen()));
+    await tester.pump();
+
+    expect(
+      tester.takeException(),
+      isNull,
+      reason: 'the hangar does not lay out',
+    );
+    for (final ship in ShipCatalog.ships) {
+      expect(
+        find.text(ship.name.toUpperCase()),
+        findsOneWidget,
+        reason: '${ship.name} is missing from the hangar',
+      );
+    }
+    // The hull the player starts on is the one being flown, and the ones they
+    // have not bought say what they cost.
+    expect(find.text('FLYING'), findsOneWidget);
+    expect(find.textContaining('NEEDS'), findsWidgets);
+  });
+
+  testWidgets('a bought hull becomes the one being flown', (tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      SaveService.keyCoins: 99999,
+    });
+    await tester.pumpWidget(await scopeFor(const HangarScreen()));
+    await tester.pump();
+
+    final interceptor = ShipCatalog.ships.firstWhere(
+      (ship) => ship.id != ShipCatalog.starter,
+    );
+    await tester.tap(find.text('BUY ${interceptor.cost}'));
+    // The sky behind the screen never stops moving, so this pumps a fixed
+    // number of frames rather than waiting for the tree to go still.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 32));
+
+    expect(find.text('FLYING'), findsOneWidget);
+    expect(find.text('SELECT'), findsOneWidget);
+  });
+
+  testWidgets('a level on the map is big enough to read and to hit', (
+    tester,
+  ) async {
+    // The map used to put all fifteen levels of a chapter on one line, from
+    // when the game was going to be landscape. Portrait left each one about
+    // twenty pixels across.
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(await scopeFor(const LevelMap()));
+    await tester.pump();
+
+    expect(tester.takeException(), isNull, reason: 'the map does not lay out');
+
+    final tile = tester.getSize(find.text('1'));
+    expect(
+      tester.getSize(find.ancestor(
+        of: find.text('1'),
+        matching: find.byType(InkWell),
+      ).first).width,
+      greaterThanOrEqualTo(44),
+      reason: 'a level tile is too small for a thumb',
+    );
+    expect(tile.height, greaterThan(0));
+  });
+
+  testWidgets('nothing sounds while the game is off the screen', (
+    tester,
+  ) async {
+    // Pausing the music player when the app leaves was not enough on its own.
+    // The player lives outside the engine, so a track asked for after the app
+    // had already gone started anyway and the phone played it with the game
+    // nowhere in sight.
+    final save = SaveService();
+    await save.init();
+    final audio = AudioController(save);
+    await tester.pumpWidget(
+      AppScope(
+        audio: audio,
+        progress: PlayerProgress(save)..load(),
+        save: save,
+        child: NovaStrikeApp(
+          audio: audio,
+          progress: PlayerProgress(save)..load(),
+          save: save,
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(audio.appVisible, isTrue);
+
+    for (final gone in const [
+      AppLifecycleState.inactive,
+      AppLifecycleState.paused,
+      AppLifecycleState.hidden,
+    ]) {
+      await audio.setAppVisible(true);
+      tester.binding.handleAppLifecycleStateChanged(gone);
+      await tester.pump();
+      expect(
+        audio.appVisible,
+        isFalse,
+        reason: 'the game keeps making noise while $gone',
+      );
+
+      // A level starting behind the player's back must not start a track.
+      await audio.playMusic('battle_a');
+      expect(audio.currentTrack, 'battle_a', reason: 'the track is forgotten');
+    }
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(audio.appVisible, isTrue);
+
+    await audio.flush();
   });
 
   testWidgets('every sheet says what its buttons do', (tester) async {

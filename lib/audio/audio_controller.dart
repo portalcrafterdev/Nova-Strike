@@ -42,7 +42,7 @@ class AudioController {
   Timer? _duckTimer;
   bool _ducked = false;
   bool _ready = false;
-  bool _musicPausedByApp = false;
+  bool _appVisible = true;
 
   AudioSettings get settings => _settings;
   double get master => _settings.master;
@@ -74,14 +74,16 @@ class AudioController {
 
   /// Starts a music track, or does nothing when that track is already playing.
   Future<void> playMusic(String track) async {
-    if (!_ready) {
-      // Audio has not been initialised yet, so there is nothing to play on.
-      return;
-    }
     if (_currentTrack == track && _musicPlayer != null) {
       return;
     }
+    // The track is remembered before either gate, because which track the game
+    // wants is not a question about the audio device or about who is looking.
+    // It starts as soon as both of those are true.
     _currentTrack = track;
+    if (!_ready || !_appVisible) {
+      return;
+    }
     try {
       final player = _musicPlayer ??= _createMusicPlayer();
       await player.stop();
@@ -105,28 +107,52 @@ class AudioController {
     }
   }
 
-  /// Pauses music when the app goes to the background.
-  Future<void> pauseMusic() async {
-    if (_currentTrack == null) {
+  /// Whether the player is actually looking at the game.
+  ///
+  /// Everything that makes a noise is gated on this. Pausing the player when
+  /// the app leaves the screen is not enough on its own: the music player lives
+  /// outside the Flutter engine, so anything that asks for a track after the
+  /// app is already in the background starts one, and the phone plays it with
+  /// the game nowhere in sight. A level beginning, a menu opening or a sheet
+  /// closing during the handover was all it took.
+  bool get appVisible => _appVisible;
+
+  /// Called from the app lifecycle hook. The one entry point for both.
+  Future<void> setAppVisible(bool visible) async {
+    if (visible == _appVisible) {
       return;
     }
-    _musicPausedByApp = true;
+    _appVisible = visible;
+    if (visible) {
+      // Whatever track the game asked for while it was away starts now.
+      final track = _currentTrack;
+      if (track == null) {
+        return;
+      }
+      if (_musicPlayer == null) {
+        // Nothing was ever loaded, so this is a start rather than a resume.
+        _currentTrack = null;
+        await playMusic(track);
+        return;
+      }
+      try {
+        await _musicPlayer?.resume();
+      } catch (error) {
+        _logAudioFailure('resume music', error);
+      }
+      return;
+    }
+
+    flush();
     try {
       await _musicPlayer?.pause();
     } catch (error) {
       _logAudioFailure('pause music', error);
     }
-  }
-
-  Future<void> resumeMusic() async {
-    if (!_musicPausedByApp) {
-      return;
-    }
-    _musicPausedByApp = false;
-    try {
-      await _musicPlayer?.resume();
-    } catch (error) {
-      _logAudioFailure('resume music', error);
+    // Effects are short, but one fired on the frame the app went away would
+    // otherwise finish playing to an empty screen.
+    for (final pool in _pools.values) {
+      pool.silence();
     }
   }
 
@@ -136,7 +162,7 @@ class AudioController {
   /// can sound at once, and a minimum gap stops the same effect retriggering
   /// on consecutive frames.
   void play(Sfx effect, {double pitch = 1.0}) {
-    if (!_ready) {
+    if (!_ready || !_appVisible) {
       return;
     }
     final volume = _settings.effectiveSfx;
@@ -314,6 +340,15 @@ class _SfxPool {
       await player.resume();
     } catch (error) {
       AudioController._logAudioFailure('play ${effect.path}', error);
+    }
+  }
+
+  /// Cuts anything still sounding, for when the game leaves the screen.
+  void silence() {
+    for (final player in _players) {
+      player.stop().catchError((Object error) {
+        AudioController._logAudioFailure('silence ${effect.path}', error);
+      });
     }
   }
 

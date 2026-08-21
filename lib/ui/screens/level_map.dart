@@ -26,11 +26,16 @@ class LevelMap extends StatefulWidget {
 }
 
 class _LevelMapState extends State<LevelMap> {
-  /// One chapter per row, all fifteen levels across the landscape screen.
-  static const double _chapterExtent = 112;
+  /// Height of one chapter block: a heading and three rows of five.
+  static const double _chapterExtent = 236;
 
-  /// A chapter is fifteen levels, and in landscape they all fit on one line.
-  static const int _levelsAcross = Tuning.levelsPerChapter;
+  /// A chapter is fifteen levels, laid out five across and three down.
+  ///
+  /// It used to put all fifteen on one line, from back when the game was going
+  /// to be landscape. On the portrait screen it actually ships on, that left
+  /// every level about twenty pixels wide: too small to read the number on and
+  /// well under the size a thumb can reliably hit.
+  static const int _levelsAcross = 5;
 
   late final ScrollController _controller;
 

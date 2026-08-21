@@ -131,7 +131,17 @@ class Tuning {
   static const double playerFireInterval = 0.22;
   static const double playerBulletSpeed = 620;
   static const double playerBulletDamage = 10;
-  static const double playerLaserDamagePerSecond = 42;
+  /// What the beam does per second, as a share of what the guns it replaces
+  /// would have done.
+  ///
+  /// It used to be a flat number, which meant the gem was an upgrade on a bare
+  /// ship and a punishment on a bought one: by the top tier the guns put out
+  /// thirteen times what the beam did, so picking the beam up cut the player's
+  /// damage to seven per cent and stopped their bullets as well. A share keeps
+  /// the trade honest at every tier. Slightly under one, because the beam hits
+  /// everything standing in the column at once and burns incoming fire out of
+  /// it, and that breadth is what the player is paying for.
+  static const double laserDpsFraction = 0.85;
   static const double playerLaserTickInterval = 0.08;
   static const double playerMagnetRadius = 110;
   static const double playerMagnetPull = 420;

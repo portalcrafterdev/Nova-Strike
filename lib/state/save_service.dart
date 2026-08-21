@@ -157,12 +157,12 @@ class SaveService {
   static String levelKeyFor(Difficulty difficulty) =>
       difficulty == Difficulty.normal
       ? keyHighestLevel
-      : '_';
+      : '${keyHighestLevel}_${difficulty.name}';
 
   static String starsKeyFor(Difficulty difficulty) =>
       difficulty == Difficulty.normal
       ? keyStars
-      : '_';
+      : '${keyStars}_${difficulty.name}';
 
   int loadHighestLevel(Difficulty difficulty) =>
       _prefs?.getInt(levelKeyFor(difficulty)) ?? 1;

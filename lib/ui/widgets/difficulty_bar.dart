@@ -93,25 +93,31 @@ class _Pill extends StatelessWidget {
             onTap: unlocked ? onTap : null,
             customBorder: novaShape(),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 9),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (!unlocked) ...[
-                    const Icon(
-                      Icons.lock_outline,
-                      size: 13,
-                      color: Palette.uiTextDim,
+              padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 4),
+              // Scaled down rather than clipped. Three pills share the width of
+              // whatever screen the game is on, and the longest of the three
+              // labels does not fit on a narrow one.
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (!unlocked) ...[
+                      const Icon(
+                        Icons.lock_outline,
+                        size: 13,
+                        color: Palette.uiTextDim,
+                      ),
+                      const SizedBox(width: 5),
+                    ],
+                    Text(
+                      DifficultyTuning.labelOf(difficulty),
+                      style: AppType.button.copyWith(
+                        color: selected ? Palette.uiAccent : Palette.uiText,
+                      ),
                     ),
-                    const SizedBox(width: 5),
                   ],
-                  Text(
-                    DifficultyTuning.labelOf(difficulty),
-                    style: AppType.button.copyWith(
-                      color: selected ? Palette.uiAccent : Palette.uiText,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
