@@ -6,9 +6,9 @@ import 'package:vector_math/vector_math_64.dart' show Vector3;
 
 import '../../theme/palette.dart';
 import '../nova_game.dart';
-import '../render3d/camera3d.dart';
-import '../render3d/mesh_renderer.dart';
-import '../render3d/scene3d.dart';
+import '../render/camera.dart';
+import '../render/sprite_renderer.dart';
+import '../render/scene.dart';
 import 'play_area.dart';
 
 /// The star field the game flies through.
@@ -24,7 +24,7 @@ import 'play_area.dart';
 /// rates, and during the warp home from the whole field moving many times
 /// faster, not from stretching a star into a line.
 class ParallaxBackground extends Component
-    with Renderable3D, HasGameReference<NovaGame> {
+    with Renderable, HasGameReference<NovaGame> {
   /// How far up the lane the field is built, past the top of the screen.
   static const double fieldDepth = 700;
 
@@ -125,7 +125,7 @@ class ParallaxBackground extends Component
   }
 
   @override
-  void render3d(Canvas canvas, MeshRenderer renderer, Camera3D camera) {
+  void paint(Canvas canvas, SpriteRenderer renderer, GameCamera camera) {
     for (var i = 0; i < _nebulaCentres.length; i++) {
       canvas.drawCircle(_nebulaCentres[i], _nebulaRadius[i], _nebulaPaints[i]);
     }

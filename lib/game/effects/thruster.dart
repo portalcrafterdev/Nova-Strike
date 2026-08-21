@@ -6,16 +6,16 @@ import 'package:vector_math/vector_math_64.dart' show Vector3;
 
 import '../../theme/palette.dart';
 import '../nova_game.dart';
-import '../render3d/camera3d.dart';
-import '../render3d/mesh_renderer.dart';
-import '../render3d/scene3d.dart';
+import '../render/camera.dart';
+import '../render/sprite_renderer.dart';
+import '../render/scene.dart';
 
 /// The engine trail behind the player ship.
 ///
 /// The trail is a ring buffer of world points written in place, so it emits
 /// continuously without allocating anything per frame.
 class ThrusterTrail extends Component
-    with Renderable3D, HasGameReference<NovaGame> {
+    with Renderable, HasGameReference<NovaGame> {
   ThrusterTrail({this.length = 16});
 
   final int length;
@@ -72,7 +72,7 @@ class ThrusterTrail extends Component
   }
 
   @override
-  void render3d(Canvas canvas, MeshRenderer renderer, Camera3D camera) {
+  void paint(Canvas canvas, SpriteRenderer renderer, GameCamera camera) {
     if (!_seeded) {
       return;
     }

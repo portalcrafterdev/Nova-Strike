@@ -112,9 +112,12 @@ class Palette {
   static const Color shieldRing = Color(0xFF5CE1B0);
   static const Color laserBeam = Color(0xFFFF6BD6);
 
-  /// Panel lines drawn between the faces of a model, so a low poly hull reads
-  /// as a hull instead of a coloured blob.
-  static const Color meshEdge = Color(0x99080C18);
+  /// The keyline drawn round every sprite.
+  ///
+  /// A flat shape has no shading to separate it from what is behind it, so the
+  /// outline is doing that job on its own. It is nearly black rather than pure
+  /// black so a hull never looks cut out of the sky.
+  static const Color spriteOutline = Color(0xE6050813);
 
   // Obstacles.
   // The escorted freighter, and the gate at the end of a gate level.
@@ -263,16 +266,6 @@ class Metrics {
   /// of a shape, so they need extra size to stay readable at range.
   static const double enemyScale = 0.95;
 
-  /// Tilt applied to a hull before it is drawn.
-  ///
-  /// Zero, because the lens already looks straight down at the plan view of
-  /// every model. Any tilt here only squashes a ship along the lane.
-  static const double enemyPitch = 0;
-
-  /// Tilt applied to the player hull before it is drawn. Zero, for the same
-  /// reason the enemies have none: the lens is already overhead.
-  static const double playerPitch = 0;
-
   /// Enemies do not turn and do not bank. The lens looks straight down, so
   /// every degree of either shows the hull at an angle, and a wave of ships all
   /// leaning different ways is what stops a player reading it at a glance.
@@ -301,12 +294,8 @@ class Metrics {
   /// happened to, which reads as a fault rather than as an explosion.
   static const double explosionMaxRadius = 11;
 
-  /// Width of the panel lines drawn between model faces.
-  static const double meshEdgeWidth = 1.1;
-
-  /// On screen radius in pixels where panel lines start and finish fading in.
-  static const double meshEdgeFadeMin = 7;
-  static const double meshEdgeFadeMax = 20;
+  /// Width of the keyline round a sprite, in pixels on the glass.
+  static const double spriteOutlineWidth = 1.6;
   static const double playerHitRadius = 7;
   static const double bulletRadius = 3.2;
 
@@ -400,8 +389,20 @@ class Metrics {
   /// How fast the ship pulls away down the lane at full warp.
   static const double warpShipSpeed = 900;
 
-  /// How far the ship banks into a turn, in radians at full speed.
+  /// How far the ship banks into a turn, at full speed across the lane.
   static const double playerBankAngle = 0.55;
+
+  /// How much of that bank shows as the nose swinging round on the screen.
+  ///
+  /// A flat hull has no wing to dip, so the lean has to read as a turn. Kept
+  /// well under a right angle: past about fifteen degrees the ship stops
+  /// looking like it is leaning and starts looking like it is aimed away.
+  static const double playerBankYaw = 0.45;
+
+  /// How far and how fast a boss sways on the spot, so a hull holding station
+  /// still reads as something under power.
+  static const double bossSwayAngle = 0.05;
+  static const double bossSwayRate = 0.6;
 
   /// How fast enemies spin about their own axis, in radians per second.
   static const double enemySpin = 0.6;

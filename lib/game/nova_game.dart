@@ -24,8 +24,8 @@ import 'components/player_ship.dart';
 import 'components/power_up.dart';
 import 'components/warp_gate.dart';
 import 'effects/camera_shake.dart';
-import 'render3d/camera3d.dart';
-import 'render3d/scene3d.dart';
+import 'render/camera.dart';
+import 'render/scene.dart';
 import 'systems/collision_rules.dart';
 import 'systems/level_runner.dart';
 import 'world/parallax_bg.dart';
@@ -93,10 +93,10 @@ class NovaGame extends FlameGame<NovaWorld> with HasCollisionDetection {
   late CameraShake shake;
 
   /// The lens the world is seen through.
-  late Camera3D camera3d;
+  late GameCamera gameCamera;
 
   /// Paints everything in depth order.
-  late Scene3D scene;
+  late Scene scene;
 
   /// Pool and cap for every bullet in the air.
   final BulletPool bullets = BulletPool();
@@ -192,7 +192,7 @@ class NovaGame extends FlameGame<NovaWorld> with HasCollisionDetection {
       ..position = Vector2.zero();
     shake = CameraShake(camera);
     shake.reduced = progress.reduceShake;
-    camera3d = Camera3D(
+    gameCamera = GameCamera(
       viewportWidth: Metrics.worldWidth,
       viewportHeight: Metrics.worldHeight,
     );
@@ -204,7 +204,10 @@ class NovaGame extends FlameGame<NovaWorld> with HasCollisionDetection {
   /// is instant: nothing is torn down except the world children.
   Future<void> startLevel(int number, {bool carryOver = false}) async {
     levelNumber = number.clamp(1, Tuning.totalLevels);
-    spec = LevelGenerator.generate(levelNumber);
+    spec = LevelGenerator.generate(
+      levelNumber,
+      difficulty: progress.difficulty,
+    );
     rng = Random(levelNumber * LevelGenerator.seedMultiplier);
 
     bullets.clear();
@@ -249,7 +252,7 @@ class NovaGame extends FlameGame<NovaWorld> with HasCollisionDetection {
 
     player = PlayerShip();
     runner = LevelRunner(spec);
-    scene = Scene3D(camera: camera3d);
+    scene = Scene(camera: gameCamera);
 
     await world.addAll([
       scene,

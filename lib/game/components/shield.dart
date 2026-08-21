@@ -6,9 +6,9 @@ import 'package:vector_math/vector_math_64.dart' show Vector3;
 
 import '../../theme/palette.dart';
 import '../nova_game.dart';
-import '../render3d/camera3d.dart';
-import '../render3d/mesh_renderer.dart';
-import '../render3d/scene3d.dart';
+import '../render/camera.dart';
+import '../render/sprite_renderer.dart';
+import '../render/scene.dart';
 import 'player_ship.dart';
 
 /// The bubble around the ship while the shield gem is active.
@@ -16,7 +16,7 @@ import 'player_ship.dart';
 /// It absorbs exactly one hit. Drawing it as a ring that follows the ship in
 /// depth keeps it readable without hiding what is behind it.
 class ShieldRing extends Component
-    with Renderable3D, HasGameReference<NovaGame> {
+    with Renderable, HasGameReference<NovaGame> {
   ShieldRing({required this.ship});
 
   static final Paint _ring = Paint()
@@ -54,7 +54,7 @@ class ShieldRing extends Component
   }
 
   @override
-  void render3d(Canvas canvas, MeshRenderer renderer, Camera3D camera) {
+  void paint(Canvas canvas, SpriteRenderer renderer, GameCamera camera) {
     final projected = camera.project(ship.position);
     if (projected == null) {
       return;

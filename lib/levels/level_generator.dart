@@ -19,18 +19,57 @@ class LevelGenerator {
   static const int seedOffset = 104729;
 
   /// Builds the spec for [levelNumber], honouring any handcrafted override.
-  static LevelSpec generate(int levelNumber) {
+  static LevelSpec generate(
+    int levelNumber, {
+    Difficulty difficulty = Difficulty.normal,
+  }) {
     final level = levelNumber.clamp(1, Tuning.totalLevels);
     final override = Handcrafted.levels[level];
     if (override != null) {
-      return override;
+      return _atDifficulty(override, difficulty);
     }
-    return build(level);
+    return build(level, difficulty: difficulty);
+  }
+
+  /// Re-scales an already built spec for a setting.
+  ///
+  /// The handcrafted levels are written out by hand rather than generated, so
+  /// they cannot fold the setting in as they go and have it applied here
+  /// instead. Every field the generator would have scaled is scaled the same
+  /// way, because a tutorial level that ignored the setting would be the one
+  /// place the player could not tell it had taken.
+  static LevelSpec _atDifficulty(LevelSpec spec, Difficulty difficulty) {
+    if (difficulty == Difficulty.normal) {
+      return spec;
+    }
+    return LevelSpec(
+      number: spec.number,
+      chapter: spec.chapter,
+      kind: spec.kind,
+      waves: spec.waves,
+      boss: spec.boss,
+      enemyHpMultiplier:
+          spec.enemyHpMultiplier * DifficultyTuning.hpFactor(difficulty),
+      enemySpeedMultiplier:
+          spec.enemySpeedMultiplier * DifficultyTuning.speedFactor(difficulty),
+      enemyFireRateMultiplier:
+          spec.enemyFireRateMultiplier *
+          DifficultyTuning.fireRateFactor(difficulty),
+      bulletSpeedMultiplier:
+          spec.bulletSpeedMultiplier *
+          DifficultyTuning.bulletSpeedFactor(difficulty),
+      coinReward: (spec.coinReward * DifficultyTuning.coinFactor(difficulty))
+          .round(),
+      musicTrack: spec.musicTrack,
+      modifier: spec.modifier,
+      obstacleRate: spec.obstacleRate,
+      difficulty: difficulty,
+    );
   }
 
   /// Generates a level without consulting the handcrafted overrides. Exposed
   /// so the overrides can build on top of generated content.
-  static LevelSpec build(int level) {
+  static LevelSpec build(int level, {Difficulty difficulty = Difficulty.normal}) {
     final rng = Random(level * seedMultiplier + seedOffset);
     final chapter = Tuning.chapterOf(level);
     final kind = Tuning.kindOf(level);
@@ -48,24 +87,35 @@ class LevelGenerator {
       chapter: chapter,
       kind: kind,
       waves: waves,
-      boss: kind == LevelKind.boss ? BossCatalog.build(level) : null,
+      boss: kind == LevelKind.boss
+          ? BossCatalog.build(level, difficulty: difficulty)
+          : null,
       enemyHpMultiplier:
           Tuning.enemyHpMultiplier(level) *
           (kind == LevelKind.elite ? Tuning.eliteHpMultiplier : 1.0) *
-          ModifierTuning.hpFactor(modifier),
+          ModifierTuning.hpFactor(modifier) *
+          DifficultyTuning.hpFactor(difficulty),
       enemySpeedMultiplier:
           Tuning.enemySpeed *
           (kind == LevelKind.elite ? Tuning.eliteSpeedMultiplier : 1.0) *
-          ModifierTuning.speedFactor(modifier),
+          ModifierTuning.speedFactor(modifier) *
+          DifficultyTuning.speedFactor(difficulty),
       enemyFireRateMultiplier:
           Tuning.enemyFireRateMultiplier(level) *
-          ModifierTuning.fireRateFactor(modifier),
+          ModifierTuning.fireRateFactor(modifier) *
+          DifficultyTuning.fireRateFactor(difficulty),
       bulletSpeedMultiplier:
-          Tuning.bulletSpeed * ModifierTuning.bulletSpeedFactor(modifier),
-      coinReward: Tuning.coinReward(level, kind),
+          Tuning.bulletSpeed *
+          ModifierTuning.bulletSpeedFactor(modifier) *
+          DifficultyTuning.bulletSpeedFactor(difficulty),
+      coinReward:
+          (Tuning.coinReward(level, kind) *
+                  DifficultyTuning.coinFactor(difficulty))
+              .round(),
       musicTrack: musicFor(level),
       modifier: modifier,
       obstacleRate: _obstacleRate(rng, level),
+      difficulty: difficulty,
     );
   }
 
@@ -97,13 +147,14 @@ class LevelGenerator {
   /// A level drawn without a twist stays plain, which is what makes the ones
   /// that do carry a twist feel like a change of pace.
   ///
-  /// Boss levels and the objective kinds never draw one. A survival, escort or
-  /// gate level already changes the rules the player is working under, and a
-  /// second twist on top of that is not a harder level, it is two new rules at
-  /// once. Level 39 drew survival and BARRAGE together, which is the worst
-  /// pair on the table, and it landed on a player with three upgrades bought.
+  /// Only ordinary levels draw one. A boss, an objective and an elite swarm
+  /// all already change the rules the player is working under, and a second
+  /// twist on top of that is not a harder level, it is two new rules at once.
+  /// The elite levels were the worst of it: an elite is already half again the
+  /// hit points and forty percent more of them, so an elite that also drew
+  /// VANGUARD landed at nearly four times the level before it.
   static LevelModifier _pickModifier(Random rng, int level, LevelKind kind) {
-    if (kind != LevelKind.normal && kind != LevelKind.elite) {
+    if (kind != LevelKind.normal) {
       return LevelModifier.none;
     }
     if (level < ModifierTuning.firstModifiedLevel) {

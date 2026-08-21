@@ -97,8 +97,11 @@ void main() {
     });
 
     test('coin rewards grow and scale with the level kind', () {
-      expect(Tuning.coinReward(1, LevelKind.normal), 10);
-      expect(Tuning.coinReward(100, LevelKind.normal), 30);
+      expect(Tuning.coinReward(1, LevelKind.normal), Tuning.baseCoinReward);
+      expect(
+        Tuning.coinReward(100, LevelKind.normal),
+        Tuning.baseCoinReward + 20,
+      );
       expect(
         Tuning.coinReward(100, LevelKind.boss),
         greaterThan(Tuning.coinReward(100, LevelKind.normal)),

@@ -3,47 +3,47 @@ import 'dart:ui';
 import 'package:flame/components.dart' hide Vector3;
 import 'package:vector_math/vector_math_64.dart';
 
-import 'camera3d.dart';
-import 'mesh_renderer.dart';
+import 'camera.dart';
+import 'sprite_renderer.dart';
 
-/// Anything in the world that draws itself in three dimensions.
+/// Anything in the world that draws itself.
 ///
 /// Components keep their own update logic, but they do not paint themselves.
-/// The scene paints them, because correct overlap needs one depth sort across
+/// The scene paints them, because correct overlap needs one sort across
 /// everything on screen rather than a fixed order per component.
-mixin Renderable3D on Component {
+mixin Renderable on Component {
   /// Where the thing is in the world.
   Vector3 get worldPosition;
 
-  /// Drawn last within its depth slot when true, which suits beams and glows.
+  /// Drawn last within its slot when true, which suits beams and glows.
   bool get drawsOnTop => false;
 
   /// Paints the thing. Called by the scene, never by Flame.
-  void render3d(Canvas canvas, MeshRenderer renderer, Camera3D camera);
+  void paint(Canvas canvas, SpriteRenderer renderer, GameCamera camera);
 }
 
-/// Owns the camera and paints every renderable in depth order.
+/// Owns the camera and paints every renderable in order.
 ///
 /// One component doing all the drawing is what makes the painter sort
 /// possible, and it keeps the per frame cost to a single sort.
-class Scene3D extends Component {
-  Scene3D({required this.camera})
-    : renderer = MeshRenderer(camera),
+class Scene extends Component {
+  Scene({required this.camera})
+    : renderer = SpriteRenderer(camera),
       super(priority: 100);
 
-  final Camera3D camera;
-  final MeshRenderer renderer;
+  final GameCamera camera;
+  final SpriteRenderer renderer;
 
-  final List<Renderable3D> _entries = [];
+  final List<Renderable> _entries = [];
   final List<double> _depths = [];
   final List<int> _order = [];
 
   /// Entities register themselves when they mount.
-  void register(Renderable3D entry) {
+  void register(Renderable entry) {
     _entries.add(entry);
   }
 
-  void unregister(Renderable3D entry) {
+  void unregister(Renderable entry) {
     _entries.remove(entry);
   }
 
@@ -72,7 +72,7 @@ class Scene3D extends Component {
     _sort();
 
     for (final index in _order) {
-      _entries[index].render3d(canvas, renderer, camera);
+      _entries[index].paint(canvas, renderer, camera);
     }
   }
 

@@ -5,9 +5,9 @@ import 'package:vector_math/vector_math_64.dart' show Vector3;
 
 import '../../theme/palette.dart';
 import '../nova_game.dart';
-import '../render3d/camera3d.dart';
-import '../render3d/mesh_renderer.dart';
-import '../render3d/scene3d.dart';
+import '../render/camera.dart';
+import '../render/sprite_renderer.dart';
+import '../render/scene.dart';
 
 /// An expanding ring of light thrown out by something large.
 ///
@@ -15,7 +15,7 @@ import '../render3d/scene3d.dart';
 /// bigger than the last thing, which is what a boss phase break and a boss
 /// death both need and neither had.
 class Shockwave extends Component
-    with Renderable3D, HasGameReference<NovaGame> {
+    with Renderable, HasGameReference<NovaGame> {
   Shockwave({
     required Vector3 origin,
     required this.color,
@@ -62,7 +62,7 @@ class Shockwave extends Component
   }
 
   @override
-  void render3d(Canvas canvas, MeshRenderer renderer, Camera3D camera) {
+  void paint(Canvas canvas, SpriteRenderer renderer, GameCamera camera) {
     final projected = camera.project(_origin);
     if (projected == null) {
       return;

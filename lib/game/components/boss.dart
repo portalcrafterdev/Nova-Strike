@@ -14,10 +14,10 @@ import '../effects/screen_flash.dart';
 import '../effects/shockwave.dart';
 import '../effects/hit_flash.dart';
 import '../nova_game.dart';
-import '../render3d/camera3d.dart';
-import '../render3d/mesh.dart';
-import '../render3d/mesh_renderer.dart';
-import '../render3d/scene3d.dart';
+import '../render/camera.dart';
+import '../render/sprite.dart';
+import '../render/sprite_renderer.dart';
+import '../render/scene.dart';
 import '../systems/bullet_patterns.dart';
 import '../world/play_area.dart';
 import 'bullet.dart';
@@ -29,15 +29,14 @@ import 'bullet.dart';
 /// three to the end, with each phase adding a bullet pattern and speeding the
 /// movement up.
 class Boss extends Component
-    with Renderable3D, HitFlash, HasGameReference<NovaGame> {
+    with Renderable, HitFlash, HasGameReference<NovaGame> {
   Boss(this.spec)
-    : _mesh = Meshes.capital(
+    : _sprite = Sprites.capital(
         hull: Palette.bossHull,
         hullDark: Palette.bossHullDark,
         core: Palette.bossCore,
         glow: Palette.bossThruster,
         width: spec.width,
-        height: spec.height,
         depth: spec.width * 0.7,
       );
 
@@ -48,7 +47,7 @@ class Boss extends Component
   static const double sweepWidth = 46;
 
   final BossSpec spec;
-  final Mesh _mesh;
+  final Sprite2D _sprite;
 
   static final Paint _shieldPaint = Paint()..style = PaintingStyle.stroke;
 
@@ -310,7 +309,7 @@ class Boss extends Component
     }
     game.world.add(
       Debris(
-        source: _mesh,
+        source: _sprite,
         origin: position,
         inherited: Vector3(0, 0, -60),
         seed: spec.archetype + 11,
@@ -330,13 +329,12 @@ class Boss extends Component
   }
 
   @override
-  void render3d(Canvas canvas, MeshRenderer renderer, Camera3D camera) {
+  void paint(Canvas canvas, SpriteRenderer renderer, GameCamera camera) {
     renderer.draw(
       canvas,
-      _mesh,
+      _sprite,
       position: position,
-      pitch: Metrics.enemyPitch,
-      roll: math.sin(_age * 0.6) * 0.06,
+      yaw: math.sin(_age * Metrics.bossSwayRate) * Metrics.bossSwayAngle,
       flash: flashAmount,
     );
 
@@ -368,14 +366,14 @@ class Boss extends Component
 /// While any pod is alive the core is armoured, so the pods are the opening
 /// move of the fight.
 class BossPod extends Component
-    with Renderable3D, HitFlash, HasGameReference<NovaGame> {
+    with Renderable, HitFlash, HasGameReference<NovaGame> {
   BossPod({required this.boss, required this.hp, required Vector3 offset})
     : maxHp = hp,
-      _mesh = _podMesh {
+      _sprite = _podMesh {
     _offset.setFrom(offset);
   }
 
-  static final Mesh _podMesh = Meshes.weakPoint(
+  static final Sprite2D _podMesh = Sprites.weakPoint(
     hull: Palette.bossHull,
     hullDark: Palette.bossHullDark,
     core: Palette.bossCore,
@@ -388,7 +386,7 @@ class BossPod extends Component
   final Boss boss;
   final Vector3 _offset = Vector3.zero();
 
-  final Mesh _mesh;
+  final Sprite2D _sprite;
   final Vector3 position = Vector3.zero();
 
   double hp;
@@ -440,12 +438,11 @@ class BossPod extends Component
   }
 
   @override
-  void render3d(Canvas canvas, MeshRenderer renderer, Camera3D camera) {
+  void paint(Canvas canvas, SpriteRenderer renderer, GameCamera camera) {
     renderer.draw(
       canvas,
-      _mesh,
+      _sprite,
       position: position,
-      pitch: Metrics.enemyPitch,
       // Square on to the player, the same as the hull it is bolted to. It used
       // to sit at an angle taken from the boss phase, which turned a pod edge
       // on and made it hard to see what you were shooting at.

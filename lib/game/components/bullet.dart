@@ -7,9 +7,9 @@ import 'package:vector_math/vector_math_64.dart' show Vector3;
 import '../../levels/difficulty_curve.dart';
 import '../../theme/palette.dart';
 import '../nova_game.dart';
-import '../render3d/camera3d.dart';
-import '../render3d/mesh_renderer.dart';
-import '../render3d/scene3d.dart';
+import '../render/camera.dart';
+import '../render/sprite_renderer.dart';
+import '../render/scene.dart';
 import '../world/play_area.dart';
 
 /// Who fired a bullet. Bullets pass straight through whoever fired them.
@@ -20,7 +20,7 @@ enum BulletOwner { player, enemy }
 /// Bullets are pooled and reset rather than allocated, they mutate their own
 /// vectors in place, and they draw as a projected glow rather than a model, so
 /// a screen full of them costs almost nothing.
-class Bullet extends Component with Renderable3D, HasGameReference<NovaGame> {
+class Bullet extends Component with Renderable, HasGameReference<NovaGame> {
   static final Paint _paint = Paint();
   static final Paint _glowPaint = Paint();
 
@@ -126,7 +126,7 @@ class Bullet extends Component with Renderable3D, HasGameReference<NovaGame> {
   }
 
   @override
-  void render3d(Canvas canvas, MeshRenderer renderer, Camera3D camera) {
+  void paint(Canvas canvas, SpriteRenderer renderer, GameCamera camera) {
     final projected = camera.project(position);
     if (projected == null) {
       return;

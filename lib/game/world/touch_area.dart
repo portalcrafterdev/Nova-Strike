@@ -36,7 +36,7 @@ class TouchArea extends PositionComponent
   }
 
   void _steer(Vector2 screen) {
-    final world = game.camera3d.screenToPlane(
+    final world = game.gameCamera.screenToPlane(
       screen.toOffset(),
       PlayArea.playerDepth,
     );

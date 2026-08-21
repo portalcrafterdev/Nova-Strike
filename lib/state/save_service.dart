@@ -1,6 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../audio/audio_settings.dart';
+import '../levels/level_spec.dart';
 
 /// The only place that touches shared_preferences.
 ///
@@ -31,6 +32,7 @@ class SaveService {
   static const String keyShip = 'shipId';
   static const String keyShipsOwned = 'shipsOwned';
   static const String keyEndlessBest = 'endlessBest';
+  static const String keyDifficulty = 'difficulty';
 
   SharedPreferences? _prefs;
 
@@ -147,10 +149,40 @@ class SaveService {
     await prefs.setBool(keyAudioMuted, settings.muted);
   }
 
-  int loadHighestLevel() => _prefs?.getInt(keyHighestLevel) ?? 1;
+  /// Progress is kept per setting, so clearing level 40 on easy does not hand
+  /// the player level 40 on hard.
+  ///
+  /// Normal keeps the original key. It is the setting every existing save was
+  /// written at, and moving it would throw that progress away.
+  static String levelKeyFor(Difficulty difficulty) =>
+      difficulty == Difficulty.normal
+      ? keyHighestLevel
+      : '_';
 
-  Future<void> saveHighestLevel(int level) async {
-    await _prefs?.setInt(keyHighestLevel, level);
+  static String starsKeyFor(Difficulty difficulty) =>
+      difficulty == Difficulty.normal
+      ? keyStars
+      : '_';
+
+  int loadHighestLevel(Difficulty difficulty) =>
+      _prefs?.getInt(levelKeyFor(difficulty)) ?? 1;
+
+  Future<void> saveHighestLevel(Difficulty difficulty, int level) async {
+    await _prefs?.setInt(levelKeyFor(difficulty), level);
+  }
+
+  Difficulty loadDifficulty() {
+    final name = _prefs?.getString(keyDifficulty);
+    for (final difficulty in Difficulty.values) {
+      if (difficulty.name == name) {
+        return difficulty;
+      }
+    }
+    return Difficulty.normal;
+  }
+
+  Future<void> saveDifficulty(Difficulty difficulty) async {
+    await _prefs?.setString(keyDifficulty, difficulty.name);
   }
 
   int loadCoins() => _prefs?.getInt(keyCoins) ?? 0;
@@ -177,10 +209,11 @@ class SaveService {
   }
 
   /// Stars are one digit per level, indexed by level number minus one.
-  String loadStars() => _prefs?.getString(keyStars) ?? '';
+  String loadStars(Difficulty difficulty) =>
+      _prefs?.getString(starsKeyFor(difficulty)) ?? '';
 
-  Future<void> saveStars(String stars) async {
-    await _prefs?.setString(keyStars, stars);
+  Future<void> saveStars(Difficulty difficulty, String stars) async {
+    await _prefs?.setString(starsKeyFor(difficulty), stars);
   }
 
   /// Wipes progress but keeps audio settings, since a reset is about the game
@@ -190,10 +223,12 @@ class SaveService {
     if (prefs == null) {
       return;
     }
-    await prefs.remove(keyHighestLevel);
+    for (final difficulty in Difficulty.values) {
+      await prefs.remove(levelKeyFor(difficulty));
+      await prefs.remove(starsKeyFor(difficulty));
+    }
     await prefs.remove(keyCoins);
     await prefs.remove(keyUpgrades);
-    await prefs.remove(keyStars);
     await prefs.remove(keyShip);
     await prefs.remove(keyShipsOwned);
     await prefs.remove(keyEndlessBest);

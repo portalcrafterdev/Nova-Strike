@@ -6,16 +6,16 @@ import 'package:vector_math/vector_math_64.dart' show Vector3;
 import '../../levels/difficulty_curve.dart';
 import '../../theme/palette.dart';
 import '../nova_game.dart';
-import '../render3d/camera3d.dart';
-import '../render3d/mesh_renderer.dart';
-import '../render3d/scene3d.dart';
+import '../render/camera.dart';
+import '../render/sprite_renderer.dart';
+import '../render/scene.dart';
 
 /// The line drawn between two things a chain shot jumped across.
 ///
 /// It carries no damage of its own. The damage is already done by the time
 /// this exists; it only shows the player why the enemy they did not shoot at
 /// died anyway.
-class ChainArc extends Component with Renderable3D, HasGameReference<NovaGame> {
+class ChainArc extends Component with Renderable, HasGameReference<NovaGame> {
   ChainArc({required Vector3 from, required Vector3 to})
     : _from = from.clone(),
       _to = to.clone();
@@ -55,7 +55,7 @@ class ChainArc extends Component with Renderable3D, HasGameReference<NovaGame> {
   }
 
   @override
-  void render3d(Canvas canvas, MeshRenderer renderer, Camera3D camera) {
+  void paint(Canvas canvas, SpriteRenderer renderer, GameCamera camera) {
     final a = camera.project(_from);
     final b = camera.project(_to);
     if (a == null || b == null) {

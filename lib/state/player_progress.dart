@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../levels/difficulty_curve.dart';
+import '../levels/level_spec.dart';
 import 'save_service.dart';
 import 'ship_catalog.dart';
 
@@ -78,19 +79,51 @@ class PlayerProgress extends ChangeNotifier {
 
   final SaveService _save;
 
-  int _highestLevelUnlocked = 1;
+  Difficulty _difficulty = DifficultyTuning.starting;
+  final Map<Difficulty, int> _highest = {
+    for (final d in Difficulty.values) d: 1,
+  };
+  final Map<Difficulty, String> _starsAt = {
+    for (final d in Difficulty.values) d: '',
+  };
   int _coins = 0;
   bool _haptics = true;
   bool _reduceShake = false;
   bool _highContrast = false;
   bool _largeBullets = false;
   Map<String, int> _upgradeTiers = <String, int>{};
-  String _stars = '';
 
-  int get highestLevelUnlocked => _highestLevelUnlocked;
+  /// The setting the player is on. Everything below that reads progress reads
+  /// it for this one.
+  Difficulty get difficulty => _difficulty;
+
+  int get highestLevelUnlocked => _highest[_difficulty]!;
   int get coins => _coins;
   bool get hapticsEnabled => _haptics;
-  String get starsData => _stars;
+  String get starsData => _starsAt[_difficulty]!;
+
+  /// How far the player has got at a given setting.
+  int highestLevelIn(Difficulty difficulty) => _highest[difficulty]!;
+
+  /// Whether a setting can be chosen yet.
+  ///
+  /// Easy and normal are always open. Hard waits until the player has taken
+  /// normal past its first boss, because a setting that beats a new player
+  /// eight times running is not a choice, it is a trap.
+  bool isAvailable(Difficulty difficulty) =>
+      difficulty != Difficulty.hard ||
+      _highest[Difficulty.normal]! > DifficultyTuning.hardUnlockLevel;
+
+  /// Switches setting. Each one keeps its own place in the campaign, so this
+  /// never moves the player forward or back through levels they have earned.
+  Future<void> setDifficulty(Difficulty difficulty) async {
+    if (difficulty == _difficulty || !isAvailable(difficulty)) {
+      return;
+    }
+    _difficulty = difficulty;
+    await _save.saveDifficulty(difficulty);
+    notifyListeners();
+  }
 
   /// Camera shake is cut to nothing when this is on.
   bool get reduceShake => _reduceShake;
@@ -122,23 +155,30 @@ class PlayerProgress extends ChangeNotifier {
 
   /// Loads everything from disk. Safe to call before the first frame.
   void load() {
-    _highestLevelUnlocked = _save.loadHighestLevel().clamp(
-      1,
-      Tuning.totalLevels,
-    );
+    _difficulty = _save.loadDifficulty();
+    for (final setting in Difficulty.values) {
+      _highest[setting] = _save
+          .loadHighestLevel(setting)
+          .clamp(1, Tuning.totalLevels);
+      _starsAt[setting] = _save.loadStars(setting);
+    }
+    // A save written before hard existed can leave the player pointed at a
+    // setting they have not earned yet.
+    if (!isAvailable(_difficulty)) {
+      _difficulty = DifficultyTuning.starting;
+    }
     _coins = _save.loadCoins();
     _haptics = _save.loadHaptics();
     _reduceShake = _save.loadReduceShake();
     _highContrast = _save.loadHighContrast();
     _largeBullets = _save.loadLargeBullets();
     _upgradeTiers = _save.loadUpgrades();
-    _stars = _save.loadStars();
     _loadShips();
     _endlessBest = _save.loadEndlessBest();
     notifyListeners();
   }
 
-  bool isUnlocked(int level) => level <= _highestLevelUnlocked;
+  bool isUnlocked(int level) => level <= highestLevelUnlocked;
 
   int tierOf(UpgradeId id) => _upgradeTiers[id.name] ?? 0;
 
@@ -171,20 +211,22 @@ class PlayerProgress extends ChangeNotifier {
     return true;
   }
 
-  /// Stars earned on a level, 0 to 3.
+  /// Stars earned on a level at the current setting, 0 to 3.
   int starsFor(int level) {
+    final stars = starsData;
     final index = level - 1;
-    if (index < 0 || index >= _stars.length) {
+    if (index < 0 || index >= stars.length) {
       return 0;
     }
-    final digit = int.tryParse(_stars[index]) ?? 0;
+    final digit = int.tryParse(stars[index]) ?? 0;
     return digit.clamp(0, Tuning.starsPerLevel);
   }
 
   int get totalStars {
+    final stars = starsData;
     var total = 0;
-    for (var i = 0; i < _stars.length; i++) {
-      total += int.tryParse(_stars[i]) ?? 0;
+    for (var i = 0; i < stars.length; i++) {
+      total += int.tryParse(stars[i]) ?? 0;
     }
     return total;
   }
@@ -198,12 +240,12 @@ class PlayerProgress extends ChangeNotifier {
   }) async {
     final clamped = stars.clamp(0, Tuning.starsPerLevel);
     if (clamped > starsFor(level)) {
-      _stars = _writeStar(level, clamped);
-      await _save.saveStars(_stars);
+      _starsAt[_difficulty] = _writeStar(level, clamped);
+      await _save.saveStars(_difficulty, starsData);
     }
-    if (level + 1 > _highestLevelUnlocked && level < Tuning.totalLevels) {
-      _highestLevelUnlocked = level + 1;
-      await _save.saveHighestLevel(_highestLevelUnlocked);
+    if (level + 1 > highestLevelUnlocked && level < Tuning.totalLevels) {
+      _highest[_difficulty] = level + 1;
+      await _save.saveHighestLevel(_difficulty, level + 1);
     }
     if (coinsEarned > 0) {
       _coins += coinsEarned;
@@ -229,10 +271,13 @@ class PlayerProgress extends ChangeNotifier {
 
   /// Wipes progress. Audio settings survive, since they are not progress.
   Future<void> resetProgress() async {
-    _highestLevelUnlocked = 1;
+    for (final difficulty in Difficulty.values) {
+      _highest[difficulty] = 1;
+      _starsAt[difficulty] = '';
+    }
+    _difficulty = DifficultyTuning.starting;
     _coins = 0;
     _upgradeTiers = <String, int>{};
-    _stars = '';
     _ship = ShipCatalog.starter;
     _owned = {ShipCatalog.starter};
     _endlessBest = 0;
@@ -331,8 +376,10 @@ class PlayerProgress extends ChangeNotifier {
     final tier = tierOf(UpgradeId.hitPoints);
     final base =
         Tuning.playerLives + (tier * Tuning.hitPointsUpgradeStep).floor();
-    // A hull may give a life or take one, but never all of them.
-    return (base + ship.livesBonus).clamp(1, 99);
+    // A hull may give a life or take one, and the setting may do the same, but
+    // between them they can never take the last one.
+    return (base + ship.livesBonus + DifficultyTuning.livesBonus(_difficulty))
+        .clamp(1, 99);
   }
 
   double get magnetRadius {
@@ -411,14 +458,15 @@ class PlayerProgress extends ChangeNotifier {
   }
 
   String _writeStar(int level, int stars) {
+    final current = starsData;
     final buffer = StringBuffer();
     final index = level - 1;
-    final length = index + 1 > _stars.length ? index + 1 : _stars.length;
+    final length = index + 1 > current.length ? index + 1 : current.length;
     for (var i = 0; i < length; i++) {
       if (i == index) {
         buffer.write(stars);
-      } else if (i < _stars.length) {
-        buffer.write(_stars[i]);
+      } else if (i < current.length) {
+        buffer.write(current[i]);
       } else {
         buffer.write('0');
       }

@@ -11,10 +11,10 @@ import '../effects/debris.dart';
 import '../effects/explosion.dart';
 import '../effects/hit_flash.dart';
 import '../nova_game.dart';
-import '../render3d/camera3d.dart';
-import '../render3d/mesh.dart';
-import '../render3d/mesh_renderer.dart';
-import '../render3d/scene3d.dart';
+import '../render/camera.dart';
+import '../render/sprite.dart';
+import '../render/sprite_renderer.dart';
+import '../render/scene.dart';
 import '../world/play_area.dart';
 
 /// A rock drifting down the lane.
@@ -24,25 +24,25 @@ import '../world/play_area.dart';
 /// the lane something to read against and a reason to keep firing between
 /// waves.
 class Obstacle extends Component
-    with Renderable3D, HitFlash, HasGameReference<NovaGame> {
+    with Renderable, HitFlash, HasGameReference<NovaGame> {
   Obstacle({required Vector3 spawn, required this.hp, required int shape})
-    : _mesh = _meshes[shape % _meshes.length],
+    : _sprite = _meshes[shape % _meshes.length],
       maxHp = hp {
     position.setFrom(spawn);
     _tumbleRate = 0.4 + (shape % 3) * 0.2;
   }
 
   /// A handful of shapes, so a field of rocks does not look stamped out.
-  static final List<Mesh> _meshes = [
+  static final List<Sprite2D> _meshes = [
     for (var seed = 0; seed < 4; seed++)
-      Meshes.asteroid(
+      Sprites.asteroid(
         body: Palette.obstacleRock,
         trim: Palette.obstacleRockDark,
         seed: seed,
       ),
   ];
 
-  final Mesh _mesh;
+  final Sprite2D _sprite;
   final Vector3 position = Vector3.zero();
   final Vector3 velocity = Vector3(0, 0, -Tuning.obstacleSpeed);
 
@@ -111,10 +111,10 @@ class Obstacle extends Component
     game.world.add(Explosion.small(position, Palette.obstacleRock));
     game.world.add(
       Debris(
-        source: _mesh,
+        source: _sprite,
         origin: position,
         inherited: Vector3(0, 0, -Tuning.obstacleSpeed),
-        seed: _meshes.indexOf(_mesh) + 5,
+        seed: _meshes.indexOf(_sprite) + 5,
       ),
     );
     game.audio.play(Sfx.enemyExplode);
@@ -126,10 +126,10 @@ class Obstacle extends Component
   }
 
   @override
-  void render3d(Canvas canvas, MeshRenderer renderer, Camera3D camera) {
+  void paint(Canvas canvas, SpriteRenderer renderer, GameCamera camera) {
     renderer.draw(
       canvas,
-      _mesh,
+      _sprite,
       position: position,
       // A rock turns in the play plane and nowhere else. The lens is straight
       // overhead, so a tumble on the other two axes folds a rock edge on and

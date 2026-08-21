@@ -116,6 +116,31 @@ class BulletPatterns {
     }
   }
 
+  /// How far the widest arm of a pattern sits from the direction it was aimed,
+  /// in radians.
+  ///
+  /// Used to decide whether an enemy may fire at all: a fan has to be measured
+  /// by its outermost arm, or the middle of the fan sits inside the cone while
+  /// an arm leaves the wing.
+  ///
+  /// A ring and a spiral are radial on purpose and are not fans, so they count
+  /// as zero. They read as a burst going everywhere rather than as a shot that
+  /// missed the nose.
+  static double halfSpread(BulletPattern pattern) {
+    switch (pattern) {
+      case BulletPattern.spread3:
+        return BulletTuning.spreadAngle;
+      case BulletPattern.aimedBurst3:
+        return BulletTuning.spreadAngle * 0.4;
+      case BulletPattern.none:
+      case BulletPattern.aimedSingle:
+      case BulletPattern.waveShot:
+      case BulletPattern.ringBurst:
+      case BulletPattern.spiralShot:
+        return 0;
+    }
+  }
+
   /// How many times a pattern triggers per firing cycle.
   static int burstCount(BulletPattern pattern) {
     return pattern == BulletPattern.aimedBurst3 ? BulletTuning.burstCount : 1;
@@ -140,15 +165,21 @@ class BulletPatterns {
   }) {
     final shots = <Shot>[];
     if (spread) {
+      // Three more streams, set wide of the cannon and running parallel to it.
+      //
+      // The gem used to fan them out at an angle. Everything the player fires
+      // now leaves straight up the lane, so the gem widens the wall of fire
+      // rather than tilting it: the same extra coverage, without two diagonal
+      // streams that look like the guns are crooked.
       for (var i = -1; i <= 1; i++) {
         shots.add(
           Shot(
-            offsetX: 0,
+            offsetX: i * Tuning.spreadOffset,
             offsetY: 0,
             offsetZ: BulletTuning.muzzleOffset,
-            velocityX: math.sin(i * Tuning.spreadAngle) * speed,
+            velocityX: 0,
             velocityY: 0,
-            velocityZ: math.cos(i * Tuning.spreadAngle) * speed,
+            velocityZ: speed,
           ),
         );
       }

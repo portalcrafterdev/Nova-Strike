@@ -6,10 +6,10 @@ import 'package:vector_math/vector_math_64.dart' show Vector3;
 import '../../levels/difficulty_curve.dart';
 import '../../theme/palette.dart';
 import '../nova_game.dart';
-import '../render3d/camera3d.dart';
-import '../render3d/mesh.dart';
-import '../render3d/mesh_renderer.dart';
-import '../render3d/scene3d.dart';
+import '../render/camera.dart';
+import '../render/sprite.dart';
+import '../render/sprite_renderer.dart';
+import '../render/scene.dart';
 import '../world/play_area.dart';
 import 'power_up.dart';
 
@@ -18,12 +18,12 @@ import 'power_up.dart';
 /// Coins drift down the lane, and the magnet gem pulls them toward the ship.
 /// Collecting every coin in a level is worth the third star.
 class CoinPickup extends Component
-    with Renderable3D, HasGameReference<NovaGame> {
+    with Renderable, HasGameReference<NovaGame> {
   CoinPickup({required Vector3 spawn}) {
     position.setFrom(spawn);
   }
 
-  static final Mesh _mesh = Meshes.gem(
+  static final Sprite2D _sprite = Sprites.gem(
     body: Palette.coin,
     trim: Palette.uiAccentWarm,
     size: Metrics.coinRadius,
@@ -84,7 +84,7 @@ class CoinPickup extends Component
   }
 
   @override
-  void render3d(Canvas canvas, MeshRenderer renderer, Camera3D camera) {
-    renderer.draw(canvas, _mesh, position: position, yaw: _age * 3.4);
+  void paint(Canvas canvas, SpriteRenderer renderer, GameCamera camera) {
+    renderer.draw(canvas, _sprite, position: position, yaw: _age * 3.4);
   }
 }

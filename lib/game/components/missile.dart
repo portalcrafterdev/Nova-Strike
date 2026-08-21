@@ -9,10 +9,10 @@ import '../../levels/difficulty_curve.dart';
 import '../../theme/palette.dart';
 import '../effects/explosion.dart';
 import '../nova_game.dart';
-import '../render3d/camera3d.dart';
-import '../render3d/mesh.dart';
-import '../render3d/mesh_renderer.dart';
-import '../render3d/scene3d.dart';
+import '../render/camera.dart';
+import '../render/sprite.dart';
+import '../render/sprite_renderer.dart';
+import '../render/scene.dart';
 import '../world/play_area.dart';
 
 /// A homing missile fired by the player ship.
@@ -25,16 +25,17 @@ import '../world/play_area.dart';
 /// Missiles are not pooled the way bullets are. A salvo arrives every couple of
 /// seconds rather than several times a second, so the allocation is noise next
 /// to the bullet stream that pooling exists for.
-class Missile extends Component with Renderable3D, HasGameReference<NovaGame> {
-  Missile({required Vector3 spawn, required this.damage, double lean = 0}) {
+class Missile extends Component with Renderable, HasGameReference<NovaGame> {
+  Missile({required Vector3 spawn, required this.damage}) {
     position.setFrom(spawn);
     previous.setFrom(spawn);
-    _heading.setValues(lean, 0, 1);
+    // Straight up the lane. The seeker turns it from here.
+    _heading.setValues(0, 0, 1);
     _heading.normalize();
     _speed = Tuning.missileLaunchSpeed;
   }
 
-  static final Mesh _mesh = Meshes.missile(
+  static final Sprite2D _sprite = Sprites.missile(
     body: Palette.missileHull,
     trim: Palette.missileHullDark,
     accent: Palette.missileFlame,
@@ -230,13 +231,12 @@ class Missile extends Component with Renderable3D, HasGameReference<NovaGame> {
   }
 
   @override
-  void render3d(Canvas canvas, MeshRenderer renderer, Camera3D camera) {
+  void paint(Canvas canvas, SpriteRenderer renderer, GameCamera camera) {
     renderer.draw(
       canvas,
-      _mesh,
+      _sprite,
       position: position,
       yaw: math.atan2(_heading.x, _heading.z),
-      pitch: -math.asin(_heading.y.clamp(-1.0, 1.0)),
     );
   }
 }

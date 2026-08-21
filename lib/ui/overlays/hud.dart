@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../game/components/power_up.dart';
 import '../../game/nova_game.dart';
+import '../../levels/difficulty_curve.dart';
+import '../../levels/level_spec.dart';
 import '../../theme/palette.dart';
 import '../../theme/typography.dart';
 import '../widgets/nova_button.dart';
@@ -74,8 +76,13 @@ class _HudState extends State<Hud> with SingleTickerProviderStateMixin {
                       children: [
                         ValueListenableBuilder<int>(
                           valueListenable: game.levelNotifier,
-                          builder: (context, level, _) =>
-                              Text('LEVEL $level', style: AppType.hud),
+                          builder: (context, level, _) => Text(
+                            game.progress.difficulty == Difficulty.normal
+                                ? 'LEVEL $level'
+                                : 'LEVEL $level  '
+                                      '${DifficultyTuning.labelOf(game.progress.difficulty)}',
+                            style: AppType.hud,
+                          ),
                         ),
                         ValueListenableBuilder<String>(
                           valueListenable: game.modifierNotifier,

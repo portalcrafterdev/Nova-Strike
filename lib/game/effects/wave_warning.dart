@@ -6,9 +6,9 @@ import 'package:vector_math/vector_math_64.dart' show Vector3;
 import '../../levels/level_spec.dart';
 import '../../theme/palette.dart';
 import '../nova_game.dart';
-import '../render3d/camera3d.dart';
-import '../render3d/mesh_renderer.dart';
-import '../render3d/scene3d.dart';
+import '../render/camera.dart';
+import '../render/sprite_renderer.dart';
+import '../render/scene.dart';
 import '../world/play_area.dart';
 
 /// A marker showing where the next wave is about to arrive from.
@@ -18,7 +18,7 @@ import '../world/play_area.dart';
 /// edge they are coming from, a beat before they get there, so the player can
 /// be somewhere else.
 class WaveWarning extends Component
-    with Renderable3D, HasGameReference<NovaGame> {
+    with Renderable, HasGameReference<NovaGame> {
   WaveWarning({required this.entry, this.lifespan = Metrics.warningLifespan});
 
   static final Paint _paint = Paint()
@@ -73,7 +73,7 @@ class WaveWarning extends Component
   }
 
   @override
-  void render3d(Canvas canvas, MeshRenderer renderer, Camera3D camera) {
+  void paint(Canvas canvas, SpriteRenderer renderer, GameCamera camera) {
     final projected = camera.project(_at);
     if (projected == null) {
       return;

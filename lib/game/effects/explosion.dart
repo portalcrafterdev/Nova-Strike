@@ -6,9 +6,9 @@ import 'package:vector_math/vector_math_64.dart' show Vector3;
 
 import '../../theme/palette.dart';
 import '../nova_game.dart';
-import '../render3d/camera3d.dart';
-import '../render3d/mesh_renderer.dart';
-import '../render3d/scene3d.dart';
+import '../render/camera.dart';
+import '../render/sprite_renderer.dart';
+import '../render/scene.dart';
 
 /// A burst of debris.
 ///
@@ -16,7 +16,7 @@ import '../render3d/scene3d.dart';
 /// pops and a boss tears itself apart. Everything is stored in flat lists and
 /// mutated in place, so a burst allocates once and never again.
 class Explosion extends Component
-    with Renderable3D, HasGameReference<NovaGame> {
+    with Renderable, HasGameReference<NovaGame> {
   Explosion({
     required Vector3 origin,
     required this.color,
@@ -122,7 +122,7 @@ class Explosion extends Component
   }
 
   @override
-  void render3d(Canvas canvas, MeshRenderer renderer, Camera3D camera) {
+  void paint(Canvas canvas, SpriteRenderer renderer, GameCamera camera) {
     final life = 1 - (_age / lifespan).clamp(0.0, 1.0);
     _paint.color = color.withValues(alpha: life);
     _hotPaint.color = Palette.thrusterHot.withValues(alpha: life);

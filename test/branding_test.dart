@@ -13,15 +13,15 @@ import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:novastrike/game/render3d/camera3d.dart';
-import 'package:novastrike/game/render3d/mesh.dart';
-import 'package:novastrike/game/render3d/mesh_renderer.dart';
+import 'package:novastrike/game/render/camera.dart';
+import 'package:novastrike/game/render/sprite.dart';
+import 'package:novastrike/game/render/sprite_renderer.dart';
 import 'package:novastrike/theme/palette.dart';
 import 'package:vector_math/vector_math_64.dart' show Vector3;
 
 /// The bare airframe. No pods and no canards: at icon size those break away
 /// from the fuselage and the mark stops being one silhouette.
-final Mesh _hull = Meshes.ship(
+final Sprite2D _hull = Sprites.ship(
   hull: Palette.playerHull,
   hullDark: Palette.playerHullDark,
   accent: Palette.playerAccent,
@@ -86,36 +86,25 @@ void _paintLogo(
       ]),
   );
 
-  // Fitted to the model's own bounds rather than to a guessed constant, so a
-  // change to the hull cannot quietly leave the mark rattling around inside
+  // Fitted to the hull's own bounds rather than to a guessed constant, so a
+  // change to the shape cannot quietly leave the mark rattling around inside
   // its box.
-  var halfWidth = 0.0;
-  var minZ = double.infinity;
-  var maxZ = -double.infinity;
-  for (final vertex in _hull.vertices) {
-    if (vertex.x.abs() > halfWidth) {
-      halfWidth = vertex.x.abs();
-    }
-    if (vertex.z < minZ) {
-      minZ = vertex.z;
-    }
-    if (vertex.z > maxZ) {
-      maxZ = vertex.z;
-    }
-  }
-  final extent = math.max(halfWidth * 2, maxZ - minZ);
+  final box = _hull.bounds;
+  final halfWidth = math.max(box.left.abs(), box.right.abs());
+  final extent = math.max(halfWidth * 2, box.height);
 
-  final camera = Camera3D(
+  final camera = GameCamera(
     viewportWidth: size,
     viewportHeight: size,
     zoom: size * ship / extent,
     laneOrigin: size / 2,
   );
-  // The hull is modelled nose forward of the origin, so it is nudged back by
-  // half its own length to sit in the middle of the frame.
-  MeshRenderer(
+  // The hull is drawn nose forward of the origin, so it is nudged back by half
+  // its own length to sit in the middle of the frame. Sprite space runs down
+  // the screen where the lane runs up it, which is why this is not negated.
+  SpriteRenderer(
     camera,
-  ).draw(canvas, _hull, position: Vector3(0, 0, -(minZ + maxZ) / 2));
+  ).draw(canvas, _hull, position: Vector3(0, 0, box.center.dy));
 }
 
 Future<Uint8List> _render(

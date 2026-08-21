@@ -10,10 +10,10 @@ import '../effects/debris.dart';
 import '../effects/explosion.dart';
 import '../effects/hit_flash.dart';
 import '../nova_game.dart';
-import '../render3d/camera3d.dart';
-import '../render3d/mesh.dart';
-import '../render3d/mesh_renderer.dart';
-import '../render3d/scene3d.dart';
+import '../render/camera.dart';
+import '../render/sprite.dart';
+import '../render/sprite_renderer.dart';
+import '../render/scene.dart';
 
 /// The freighter the player is escorting.
 ///
@@ -21,16 +21,15 @@ import '../render3d/scene3d.dart';
 /// rails and the level ends when it reaches the far side. It ending badly ends
 /// the level too, which is what turns a shooting gallery into a defence.
 class Freighter extends Component
-    with Renderable3D, HitFlash, HasGameReference<NovaGame> {
+    with Renderable, HitFlash, HasGameReference<NovaGame> {
   Freighter({required this.maxHp}) : hp = maxHp;
 
-  static final Mesh _mesh = Meshes.capital(
+  static final Sprite2D _sprite = Sprites.capital(
     hull: Palette.freighterHull,
     hullDark: Palette.freighterHullDark,
     core: Palette.freighterCore,
     glow: Palette.freighterCore,
     width: Tuning.freighterWidth,
-    height: Tuning.freighterHeight,
     depth: Tuning.freighterWidth * 0.6,
   );
 
@@ -99,7 +98,7 @@ class Freighter extends Component
       ..add(Explosion.large(position, Palette.freighterCore))
       ..add(
         Debris(
-          source: _mesh,
+          source: _sprite,
           origin: position,
           inherited: Vector3(0, 0, -Tuning.freighterSpeed),
           seed: 71,
@@ -112,7 +111,7 @@ class Freighter extends Component
   }
 
   @override
-  void render3d(Canvas canvas, MeshRenderer renderer, Camera3D camera) {
-    renderer.draw(canvas, _mesh, position: position, flash: flashAmount);
+  void paint(Canvas canvas, SpriteRenderer renderer, GameCamera camera) {
+    renderer.draw(canvas, _sprite, position: position, flash: flashAmount);
   }
 }

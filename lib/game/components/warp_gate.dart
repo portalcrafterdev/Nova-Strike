@@ -7,9 +7,9 @@ import 'package:vector_math/vector_math_64.dart' show Vector3;
 import '../../levels/difficulty_curve.dart';
 import '../../theme/palette.dart';
 import '../nova_game.dart';
-import '../render3d/camera3d.dart';
-import '../render3d/mesh_renderer.dart';
-import '../render3d/scene3d.dart';
+import '../render/camera.dart';
+import '../render/sprite_renderer.dart';
+import '../render/scene.dart';
 
 /// The ring the player has to fly through to finish a gate level.
 ///
@@ -17,7 +17,7 @@ import '../render3d/scene3d.dart';
 /// one hands the ending back: the gate drifts in, and the level is over when
 /// the player decides to leave through it, which means the coins still on the
 /// screen are a real decision rather than a formality.
-class WarpGate extends Component with Renderable3D, HasGameReference<NovaGame> {
+class WarpGate extends Component with Renderable, HasGameReference<NovaGame> {
   static final Paint _ring = Paint()..style = PaintingStyle.stroke;
   static final Paint _inner = Paint()..style = PaintingStyle.stroke;
 
@@ -71,7 +71,7 @@ class WarpGate extends Component with Renderable3D, HasGameReference<NovaGame> {
   }
 
   @override
-  void render3d(Canvas canvas, MeshRenderer renderer, Camera3D camera) {
+  void paint(Canvas canvas, SpriteRenderer renderer, GameCamera camera) {
     final projected = camera.project(position);
     if (projected == null) {
       return;

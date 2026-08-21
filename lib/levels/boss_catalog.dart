@@ -191,7 +191,10 @@ class BossCatalog {
 
   /// Builds the boss for a level. Archetype comes from the chapter, and every
   /// repeat of an archetype adds hit points, speed and one attack pattern.
-  static BossSpec build(int level) {
+  static BossSpec build(
+    int level, {
+    Difficulty difficulty = Difficulty.normal,
+  }) {
     final chapter = Tuning.chapterOf(level);
     final index = (chapter - 1) % Tuning.bossArchetypeCount;
     final repeat = (chapter - 1) ~/ Tuning.bossArchetypeCount;
@@ -212,13 +215,17 @@ class BossCatalog {
     return BossSpec(
       archetype: index,
       name: archetype.name,
-      maxHp: Tuning.bossHp(level, repeat),
+      maxHp:
+          Tuning.bossHp(level, repeat) *
+          DifficultyTuning.hpFactor(difficulty),
       width: archetype.width,
       height: archetype.height,
       phasePatterns: patterns,
       moveSpeed: archetype.moveSpeed,
       fireInterval:
-          archetype.fireInterval / Tuning.enemyFireRateMultiplier(level),
+          archetype.fireInterval /
+          Tuning.enemyFireRateMultiplier(level) /
+          DifficultyTuning.fireRateFactor(difficulty),
       weakPoints: archetype.weakPoints,
       hasShieldArc: archetype.hasShieldArc,
       contactDamage: 1,

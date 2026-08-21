@@ -11,9 +11,9 @@ import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:novastrike/game/render3d/camera3d.dart';
-import 'package:novastrike/game/render3d/mesh.dart';
-import 'package:novastrike/game/render3d/mesh_renderer.dart';
+import 'package:novastrike/game/render/camera.dart';
+import 'package:novastrike/game/render/sprite.dart';
+import 'package:novastrike/game/render/sprite_renderer.dart';
 import "package:novastrike/game/components/enemy_ship.dart";
 import "package:novastrike/levels/level_spec.dart";
 import 'package:novastrike/state/ship_catalog.dart';
@@ -24,22 +24,20 @@ const double _cell = 220;
 const int _columns = 5;
 
 /// Every model worth looking at, with the pitch it is normally seen at.
-Map<String, Mesh> _sheet() {
-  final models = <String, Mesh>{};
+Map<String, Sprite2D> _sheet() {
+  final models = <String, Sprite2D>{};
   for (final ship in ShipCatalog.ships) {
-    models['${ship.name} hull'] = Meshes.ship(
+    models['${ship.name} hull'] = Sprites.ship(
       hull: ship.hull,
       hullDark: ship.hullDark,
       accent: ship.accent,
       nose: ship.nose,
       span: ship.span,
       sweep: ship.sweep,
-      spine: ship.spine,
-      keel: ship.keel,
       tailSpan: ship.tailSpan,
     );
   }
-  models['vanguard rack'] = Meshes.ship(
+  models['vanguard rack'] = Sprites.ship(
     hull: Palette.playerHull,
     hullDark: Palette.playerHullDark,
     accent: Palette.playerAccent,
@@ -50,27 +48,26 @@ Map<String, Mesh> _sheet() {
   for (final type in EnemyType.values) {
     models[type.name] = EnemyShip.meshOf(type);
   }
-  models['boss'] = Meshes.capital(
+  models['boss'] = Sprites.capital(
     hull: Palette.bossHull,
     hullDark: Palette.bossHullDark,
     core: Palette.bossCore,
     glow: Palette.bossThruster,
     width: 60,
-    height: 20,
     depth: 42,
   );
-  models['weak point'] = Meshes.weakPoint(
+  models['weak point'] = Sprites.weakPoint(
     hull: Palette.bossHull,
     hullDark: Palette.bossHullDark,
     core: Palette.bossCore,
     radius: 13,
   );
-  models['missile'] = Meshes.missile(
+  models['missile'] = Sprites.missile(
     body: Palette.missileHull,
     trim: Palette.missileHullDark,
     accent: Palette.missileFlame,
   );
-  models['flak shell'] = Meshes.shell(
+  models['flak shell'] = Sprites.shell(
     body: Palette.flakShell,
     trim: Palette.flakShellDark,
     accent: Palette.flakBurst,
@@ -92,13 +89,13 @@ void main() {
       Paint()..color = Palette.spaceDeep,
     );
 
-    final camera = Camera3D(
+    final camera = GameCamera(
       viewportWidth: _cell,
       viewportHeight: _cell,
       zoom: 2.4,
       laneOrigin: _cell / 2,
     );
-    final renderer = MeshRenderer(camera);
+    final renderer = SpriteRenderer(camera);
 
     var index = 0;
     for (final entry in models.entries) {
@@ -111,7 +108,6 @@ void main() {
         canvas,
         entry.value,
         position: Vector3(0, 0, 0),
-        pitch: 0,
         scale: 1.0,
       );
       final label =

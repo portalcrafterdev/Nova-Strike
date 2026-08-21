@@ -14,10 +14,10 @@ import '../effects/explosion.dart';
 import '../effects/screen_flash.dart';
 import '../effects/thruster.dart';
 import '../nova_game.dart';
-import '../render3d/camera3d.dart';
-import '../render3d/mesh.dart';
-import '../render3d/mesh_renderer.dart';
-import '../render3d/scene3d.dart';
+import '../render/camera.dart';
+import '../render/sprite.dart';
+import '../render/sprite_renderer.dart';
+import '../render/scene.dart';
 import '../systems/bullet_patterns.dart';
 import '../world/play_area.dart';
 import 'bullet.dart';
@@ -33,14 +33,14 @@ import 'shield.dart';
 /// under the thumb, eases toward that target so movement feels weighty, banks
 /// into its turns, and fires on its own. The player never taps to shoot.
 class PlayerShip extends Component
-    with Renderable3D, HasGameReference<NovaGame> {
+    with Renderable, HasGameReference<NovaGame> {
   /// Built from the hull the player chose and the ordnance they have bought.
-  late final Mesh _mesh = _hullFor(
+  late final Sprite2D _sprite = _hullFor(
     game.progress.ship,
     game.progress.tierOf(UpgradeId.ordnance),
   );
 
-  static final Map<String, Mesh> _hulls = {};
+  static final Map<String, Sprite2D> _hulls = {};
 
   /// The model for one hull at one ordnance tier.
   ///
@@ -48,10 +48,10 @@ class PlayerShip extends Component
   /// each wing once the first tier is bought, and canards up front on top of
   /// that further up. An upgrade the player paid for should be visible on the
   /// thing they fly, not only in the numbers.
-  static Mesh _hullFor(ShipDef def, int tier) {
+  static Sprite2D _hullFor(ShipDef def, int tier) {
     return _hulls.putIfAbsent(
       '${def.id.name}-$tier',
-      () => Meshes.ship(
+      () => Sprites.ship(
         hull: def.hull,
         hullDark: def.hullDark,
         accent: def.accent,
@@ -61,8 +61,6 @@ class PlayerShip extends Component
         nose: def.nose,
         span: def.span,
         sweep: def.sweep,
-        spine: def.spine,
-        keel: def.keel,
         tailSpan: def.tailSpan,
       ),
     );
@@ -220,7 +218,9 @@ class PlayerShip extends Component
     position.x = PlayArea.clampX(position.x, 6);
     position.z = PlayArea.clampLane(position.z, 6);
 
-    // Bank into the turn, which is most of what sells the third dimension.
+    // Lean into the turn. On a flat hull this comes out as the nose swinging
+    // toward the direction of travel, which is what reads as a ship turning
+    // rather than a ship sliding.
     _driftX = dt > 0 ? (position.x - previousX) / dt : 0;
     final targetBank =
         (-_driftX / 220).clamp(-1.0, 1.0) * Metrics.playerBankAngle;
@@ -287,8 +287,9 @@ class PlayerShip extends Component
   /// Sends off a salvo of homing missiles.
   ///
   /// They alternate rails so a single missile does not always leave from the
-  /// same side, and each one is given a slight outward lean so a salvo opens
-  /// into a fan before the seekers pull it back together.
+  /// same side. Every one of them leaves straight up the lane: the salvo used
+  /// to open into a fan first, which put bright angled streaks either side of
+  /// the ship and read as the guns being crooked.
   void _launchMissiles() {
     final count = game.progress.missileSalvo;
     for (var i = 0; i < count; i++) {
@@ -300,11 +301,7 @@ class PlayerShip extends Component
         position.z,
       );
       game.world.add(
-        Missile(
-          spawn: _muzzle,
-          damage: game.progress.missileDamage,
-          lean: side * 0.25,
-        ),
+        Missile(spawn: _muzzle, damage: game.progress.missileDamage),
       );
     }
     game.audio.play(Sfx.missileLaunch);
@@ -539,7 +536,7 @@ class PlayerShip extends Component
   }
 
   @override
-  void render3d(Canvas canvas, MeshRenderer renderer, Camera3D camera) {
+  void paint(Canvas canvas, SpriteRenderer renderer, GameCamera camera) {
     // Blink while invulnerable so the player can see the state.
     if (_invulnerable > 0 &&
         (_blink * Metrics.invulnerabilityBlinkRate).floor().isEven) {
@@ -547,10 +544,9 @@ class PlayerShip extends Component
     }
     renderer.draw(
       canvas,
-      _mesh,
+      _sprite,
       position: position,
-      roll: _bank,
-      pitch: Metrics.playerPitch + (_driftX.abs() / 900).clamp(0.0, 0.12),
+      yaw: -_bank * Metrics.playerBankYaw,
       scale: Metrics.playerScale,
     );
   }
@@ -561,7 +557,7 @@ class PlayerShip extends Component
 /// It pierces everything in the lane ahead of the ship, dealing damage on a
 /// fixed tick rather than per frame so the damage never depends on frame rate.
 class LaserBeam extends Component
-    with Renderable3D, HasGameReference<NovaGame> {
+    with Renderable, HasGameReference<NovaGame> {
   LaserBeam({required this.ship});
 
   static final Paint _core = Paint()..color = Palette.laserBeam;
@@ -643,7 +639,7 @@ class LaserBeam extends Component
   }
 
   @override
-  void render3d(Canvas canvas, MeshRenderer renderer, Camera3D camera) {
+  void paint(Canvas canvas, SpriteRenderer renderer, GameCamera camera) {
     final near = camera.project(ship.position);
     _far.setValues(ship.position.x, ship.position.y, PlayArea.spawnDepth);
     final far = camera.project(_far);

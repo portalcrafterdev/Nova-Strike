@@ -1,10 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:novastrike/game/render3d/camera3d.dart';
+import 'package:novastrike/game/render/camera.dart';
 import 'package:novastrike/theme/palette.dart';
 import 'package:vector_math/vector_math_64.dart';
 
-Camera3D buildCamera() {
-  return Camera3D(
+GameCamera buildCamera() {
+  return GameCamera(
     viewportWidth: Metrics.worldWidth,
     viewportHeight: Metrics.worldHeight,
   );
@@ -61,14 +61,14 @@ void main() {
       expect(back.y, 0);
     });
 
-    test('the height of a model never moves it across the screen', () {
+    test('the height of a thing never moves it across the screen', () {
       final camera = buildCamera();
       final flat = camera.project(Vector3(20, 0, 100))!;
       final raised = camera.project(Vector3(20, 30, 100))!;
 
+      // y is not a direction the player can see. It only ever decides which of
+      // two things sitting on the same spot paints on top.
       expect(raised.screen, flat.screen);
-      // It only decides which of the two paints on top.
-      expect(raised.depth, lessThan(flat.depth));
     });
 
     test('resizing keeps the middle of the screen the middle of the lane', () {

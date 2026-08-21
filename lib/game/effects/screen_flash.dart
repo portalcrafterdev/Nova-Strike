@@ -5,16 +5,16 @@ import 'package:vector_math/vector_math_64.dart' show Vector3;
 
 import '../../theme/palette.dart';
 import '../nova_game.dart';
-import '../render3d/camera3d.dart';
-import '../render3d/mesh_renderer.dart';
-import '../render3d/scene3d.dart';
+import '../render/camera.dart';
+import '../render/sprite_renderer.dart';
+import '../render/scene.dart';
 
 /// A single frame of light across the whole screen, fading out fast.
 ///
 /// Used to punctuate the moments a shake and a noise are not enough on their
 /// own: a boss changing phase, and the hit that ends a fight.
 class ScreenFlash extends Component
-    with Renderable3D, HasGameReference<NovaGame> {
+    with Renderable, HasGameReference<NovaGame> {
   ScreenFlash({
     this.color = Palette.hitFlash,
     this.strength = Metrics.screenFlashStrength,
@@ -67,7 +67,7 @@ class ScreenFlash extends Component
   }
 
   @override
-  void render3d(Canvas canvas, MeshRenderer renderer, Camera3D camera) {
+  void paint(Canvas canvas, SpriteRenderer renderer, GameCamera camera) {
     final t = (_age / lifespan).clamp(0.0, 1.0);
     _paint.color = color.withValues(alpha: strength * (1 - t) * (1 - t));
     canvas.drawRect(_screen, _paint);

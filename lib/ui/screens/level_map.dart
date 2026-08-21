@@ -7,6 +7,7 @@ import '../../levels/level_spec.dart';
 import '../../state/player_progress.dart';
 import '../../theme/palette.dart';
 import '../../theme/typography.dart';
+import '../widgets/difficulty_bar.dart';
 import '../widgets/nova_button.dart';
 import '../widgets/star_field.dart';
 import 'game_screen.dart';
@@ -76,23 +77,39 @@ class _LevelMapState extends State<LevelMap> {
           child: AnimatedBuilder(
             animation: scope.progress,
             builder: (context, _) {
-              return ListView.builder(
-                controller: _controller,
-                itemExtent: _chapterExtent,
-                itemCount: Tuning.totalChapters,
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                itemBuilder: (context, index) => _ChapterBlock(
-                  chapter: index + 1,
-                  progress: scope.progress,
-                  onSelect: (level) {
-                    scope.audio.play(Sfx.buttonTap);
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => GameScreen(levelNumber: level),
+              return Column(
+                children: [
+                  DifficultyBar(
+                    progress: scope.progress,
+                    onChanged: (difficulty) async {
+                      scope.audio.play(Sfx.buttonTap);
+                      await scope.progress.setDifficulty(difficulty);
+                      // Each setting keeps its own place in the campaign, so
+                      // the list is put back where the player left this one.
+                      _jumpToCurrent();
+                    },
+                  ),
+                  Expanded(
+                    child: ListView.builder(
+                      controller: _controller,
+                      itemExtent: _chapterExtent,
+                      itemCount: Tuning.totalChapters,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      itemBuilder: (context, index) => _ChapterBlock(
+                        chapter: index + 1,
+                        progress: scope.progress,
+                        onSelect: (level) {
+                          scope.audio.play(Sfx.buttonTap);
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => GameScreen(levelNumber: level),
+                            ),
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  ),
+                ],
               );
             },
           ),

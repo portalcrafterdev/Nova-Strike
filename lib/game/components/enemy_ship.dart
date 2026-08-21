@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flame/components.dart' hide Vector3;
@@ -12,10 +13,10 @@ import '../effects/debris.dart';
 import '../effects/explosion.dart';
 import '../effects/hit_flash.dart';
 import '../nova_game.dart';
-import '../render3d/camera3d.dart';
-import '../render3d/mesh.dart';
-import '../render3d/mesh_renderer.dart';
-import '../render3d/scene3d.dart';
+import '../render/camera.dart';
+import '../render/sprite.dart';
+import '../render/sprite_renderer.dart';
+import '../render/scene.dart';
 import '../systems/bullet_patterns.dart';
 import '../systems/movement_patterns.dart';
 import '../world/play_area.dart';
@@ -28,38 +29,38 @@ import 'bullet.dart';
 /// pattern functions supply the behaviour, and the mesh library supplies the
 /// shape.
 class EnemyShip extends Component
-    with Renderable3D, HitFlash, HasGameReference<NovaGame> {
-  static final Map<EnemyType, Mesh> _meshes = {
+    with Renderable, HitFlash, HasGameReference<NovaGame> {
+  static final Map<EnemyType, Sprite2D> _meshes = {
     for (final entry in EnemyCatalog.entries.values)
       entry.type: _meshFor(entry),
   };
 
   /// The model a family flies, so a look at the art never has to rebuild one.
-  static Mesh meshOf(EnemyType type) => _meshes[type]!;
+  static Sprite2D meshOf(EnemyType type) => _meshes[type]!;
 
   /// Every family gets its own silhouette, because the shape is how a player
   /// reads what is coming at them before the colour registers.
-  static Mesh _meshFor(EnemyStats stats) {
+  static Sprite2D _meshFor(EnemyStats stats) {
     final body = stats.color;
     final trim = Color.lerp(stats.color, const Color(0xFF060A16), 0.3)!;
     final s = stats.size / 26;
     switch (stats.type) {
       case EnemyType.scout:
-        return Meshes.scout(body: body, trim: trim, s: s);
+        return Sprites.scout(body: body, trim: trim, s: s);
       case EnemyType.darter:
-        return Meshes.darter(body: body, trim: trim, s: s);
+        return Sprites.darter(body: body, trim: trim, s: s);
       case EnemyType.gunner:
-        return Meshes.gunner(body: body, trim: trim, s: s);
+        return Sprites.gunner(body: body, trim: trim, s: s);
       case EnemyType.bomber:
-        return Meshes.bomber(body: body, trim: trim, s: s);
+        return Sprites.bomber(body: body, trim: trim, s: s);
       case EnemyType.shielder:
-        return Meshes.shielder(body: body, trim: trim, s: s);
+        return Sprites.shielder(body: body, trim: trim, s: s);
       case EnemyType.splitter:
-        return Meshes.splitter(body: body, trim: trim, s: s);
+        return Sprites.splitter(body: body, trim: trim, s: s);
       case EnemyType.turret:
-        return Meshes.turret(body: body, trim: trim, s: s);
+        return Sprites.turret(body: body, trim: trim, s: s);
       case EnemyType.kamikaze:
-        return Meshes.kamikaze(body: body, trim: trim, s: s);
+        return Sprites.kamikaze(body: body, trim: trim, s: s);
     }
   }
 
@@ -91,6 +92,13 @@ class EnemyShip extends Component
 
   @override
   Vector3 get worldPosition => position;
+
+  /// True for a flanker that has run past the player and swung around.
+  ///
+  /// It is the one family that attacks from behind, so it is the one that ends
+  /// up pointing back up the lane. Everything else points down it.
+  bool get _hasTurned =>
+      movement == MovementPattern.flank && position.z < game.player.position.z;
 
   /// Sets every value an enemy needs for one life.
   void configure({
@@ -190,12 +198,43 @@ class EnemyShip extends Component
     _updateFiring(dt);
   }
 
+  /// Whether the player is somewhere this hull could actually shoot at.
+  ///
+  /// Every hull points down the lane, so a shot only looks like a shot when
+  /// the player is roughly ahead of the nose. Without this an enemy crossing
+  /// the lane fires out of its own wing and the bullet flies from one side of
+  /// the screen to the other, and one that has gone past fires out of its
+  /// tail. Neither reads as a threat. It reads as a mistake.
+  ///
+  /// A turret is exempt: it is a drum that sweeps, so it has no fixed nose. A
+  /// flanker is exempt because it turns around, and the cone turns with it.
+  bool _canBear() {
+    if (stats.type == EnemyType.turret) {
+      return true;
+    }
+    final dx = game.player.position.x - position.x;
+    final dz = game.player.position.z - position.z;
+
+    // How far ahead the player is, measured along the way the nose points.
+    final ahead = _hasTurned ? dz : -dz;
+    if (ahead < MoveTuning.fireCutoff) {
+      return false;
+    }
+    // A fan is measured by its outermost arm, not by the middle of it, so a
+    // spread has to be that much closer to straight ahead before it goes.
+    final fan = BulletPatterns.halfSpread(bulletPattern);
+    return math.atan2(dx.abs(), ahead) <= MoveTuning.fireCone - fan;
+  }
+
   void _updateFiring(double dt) {
     if (bulletPattern == BulletPattern.none) {
       return;
     }
     if (position.z > PlayArea.spawnDepth * 0.92) {
       // Still arriving out of the distance.
+      return;
+    }
+    if (!_canBear()) {
       return;
     }
     if (_burstLeft > 0) {
@@ -321,7 +360,7 @@ class EnemyShip extends Component
   }
 
   @override
-  void render3d(Canvas canvas, MeshRenderer renderer, Camera3D camera) {
+  void paint(Canvas canvas, SpriteRenderer renderer, GameCamera camera) {
     // The models are built nose first down the negative z axis, the way they
     // fly, so nothing has to be turned around here.
     renderer.draw(
@@ -335,8 +374,7 @@ class EnemyShip extends Component
       // straight down, so every degree of turn or lean shows the hull at an
       // angle, and eight families all leaning different ways is what made a
       // wave hard to read.
-      yaw: stats.type == EnemyType.turret ? _spin : 0,
-      pitch: stats.type == EnemyType.turret ? 0 : Metrics.enemyPitch,
+      yaw: stats.type == EnemyType.turret ? _spin : (_hasTurned ? math.pi : 0),
       scale: Metrics.enemyScale,
       flash: flashAmount,
     );

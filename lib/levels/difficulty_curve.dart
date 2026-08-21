@@ -41,6 +41,12 @@ class Tuning {
   /// the screen into guessing.
   static const double bulletSpeed = 1.0;
   static const double hpPerLevel = 0.035;
+
+  /// Where the hit point climb flattens off.
+  static const int hpKnee = 300;
+
+  /// How fast hit points grow past the knee, per level.
+  static const double hpTailPerLevel = 0.0025;
   static const double fireRatePerLevel = 0.012;
   static const double fireRateCap = 3.0;
 
@@ -64,7 +70,12 @@ class Tuning {
   static const double eliteCountMultiplier = 1.4;
 
   // Rewards.
-  static const int baseCoinReward = 10;
+  /// Coins for finishing a level, before the level number is added.
+  ///
+  /// High enough that the first boss is met with a ship that has been
+  /// upgraded. At ten a player reached level 15 with 161 coins and the
+  /// cheapest upgrade cost 120, so they fought it bare.
+  static const int baseCoinReward = 22;
   static const int coinRewardLevelDivisor = 5;
   static const double eliteCoinBonus = 1.5;
   static const double bossCoinBonus = 2.5;
@@ -77,8 +88,19 @@ class Tuning {
   static const double powerUpDropChance = 0.45;
 
   // Boss scaling.
-  static const double bossBaseHp = 320;
-  static const double bossHpPerLevel = 0.014;
+  /// Hit points of a boss before the level number is taken into account.
+  ///
+  /// A boss has to last long enough to have phases. At 320 the first one died
+  /// in a little over three seconds against a ship that had bought a couple of
+  /// upgrades, which is a big enemy rather than a boss fight.
+  static const double bossBaseHp = 1870;
+
+  /// How much a boss gains per level.
+  ///
+  /// Shallow, because the base already carries the weight. A steeper slope
+  /// made the early bosses trivial and the late ones a grind, which is the
+  /// wrong way round.
+  static const double bossHpPerLevel = 0.0024;
 
   /// Each time an archetype comes back around it gains hit points and one
   /// more attack pattern. It does not gain speed: a boss that moves faster
@@ -153,7 +175,12 @@ class Tuning {
   // Power-ups.
   static const double powerUpDuration = 12;
   static const double slowBulletFactor = 0.6;
-  static const double spreadAngle = 0.22;
+
+  /// How far apart the three streams of the spread gem sit.
+  ///
+  /// Wider than the double shot, because widening the wall of fire is the
+  /// whole of what the gem now does.
+  static const double spreadOffset = 22;
   static const double doubleShotOffset = 9;
 
   // Objective levels. Three shapes that end on something other than killing
@@ -319,7 +346,12 @@ class Tuning {
   static const double podDamage = 2;
 
   /// How far out from straight ahead the pods point, in radians.
-  static const double podAngle = 0.34;
+  /// Wing pods fire straight up the lane, parallel to the cannon.
+  ///
+  /// They used to splay outward, which put two permanent diagonal streams
+  /// either side of the ship. Coverage comes from how far apart the pods sit,
+  /// not from pointing them away from where the player is aiming.
+  static const double podAngle = 0;
 
   /// Sideways mounting offset of the pods from the middle of the ship.
   static const double podOffset = 13;
@@ -407,7 +439,7 @@ class Tuning {
 
   // Upgrades. Five tiers each, cost rising geometrically.
   static const int upgradeMaxTier = 5;
-  static const int upgradeBaseCost = 120;
+  static const int upgradeBaseCost = 90;
   static const double upgradeCostGrowth = 1.85;
   static const double fireRateUpgradeStep = 0.10;
   static const double damageUpgradeStep = 0.22;
@@ -435,7 +467,17 @@ class Tuning {
 
   /// Enemy hit point multiplier for a level, before the catalog base value.
   static double enemyHpMultiplier(int level) {
-    return (1 + hpPerLevel * level) * _relief(level) * earlyFactor(level);
+    // Steep to the knee, then almost flat.
+    //
+    // A straight line here was the single worst thing in the game. Hit points
+    // grew fifty three times over by level 1500 while everything the player
+    // can buy only multiplies their damage about thirteen times, so the last
+    // levels took minutes of holding the trigger on the same wave. Past the
+    // knee a level gets harder through more waves, more families and more
+    // fire, not through enemies that soak longer.
+    final ramp = hpPerLevel * math.min(level, hpKnee);
+    final tail = hpTailPerLevel * math.max(0, level - hpKnee);
+    return (1 + ramp + tail) * _relief(level) * earlyFactor(level);
   }
 
   /// The opening bump, which is at its strongest on level 1 and gone by the
@@ -544,6 +586,21 @@ class Tuning {
 class MoveTuning {
   // The flanker: runs past, turns, comes back up the lane behind the player.
   /// How far past the player it goes before turning.
+  /// How wide a cone in front of its own nose an enemy will shoot into, in
+  /// radians.
+  ///
+  /// Every hull points down the lane, so a shot outside this reads as leaving
+  /// the wing or the tail rather than the nose. Just under 55 degrees, which
+  /// is wide enough that a wave arriving from the top never holds fire and
+  /// narrow enough that one crossing the lane does.
+  static const double fireCone = 0.95;
+
+  /// How far in front of the player an enemy must still be to keep firing.
+  ///
+  /// Slightly ahead of the ship rather than level with it, so a shot is never
+  /// released from a hull that is already alongside and pointing away.
+  static const double fireCutoff = 12;
+
   static const double flankOvershoot = 140;
   static const double flankRunSpeed = 1.5;
 
@@ -759,5 +816,140 @@ class ModifierTuning {
   /// Bullet speed multiplier for a modifier.
   static double bulletSpeedFactor(LevelModifier modifier) {
     return modifier == LevelModifier.barrage ? barrageBulletSpeed : 1;
+  }
+}
+
+/// What each of the three settings does to a level.
+///
+/// The campaign is not three campaigns. It is the same 1500 generated levels
+/// with these multipliers folded into the spec, which is why a level number
+/// still produces the same waves in the same formations at any setting: the
+/// player who moves down to easy is playing the level they were stuck on, not
+/// a different one.
+///
+/// Easy takes hit points and rate of fire off rather than taking enemies away,
+/// because a wave with pieces missing stops reading as the formation it was
+/// drawn as. Hard adds hit points and fire, and pays for it.
+class DifficultyTuning {
+  const DifficultyTuning._();
+
+  /// The setting a new player starts on.
+  static const Difficulty starting = Difficulty.normal;
+
+  /// Hard stays shut until the player has taken normal past its first boss.
+  ///
+  /// Offering it from the menu of a game nobody has played yet is how a player
+  /// picks it once, loses eight times and stops.
+  static const int hardUnlockLevel = 15;
+
+  static const double easyHp = 0.68;
+  static const double easySpeed = 0.88;
+  static const double easyFireRate = 0.66;
+  static const double easyBulletSpeed = 0.85;
+  static const double easyCoin = 0.7;
+
+  static const double hardHp = 1.5;
+  static const double hardSpeed = 1.1;
+  static const double hardFireRate = 1.35;
+  static const double hardBulletSpeed = 1.12;
+  static const double hardCoin = 1.75;
+
+  /// Lives added on easy and taken away on hard.
+  static const int easyLives = 2;
+  static const int hardLives = -1;
+
+  static double hpFactor(Difficulty difficulty) {
+    switch (difficulty) {
+      case Difficulty.easy:
+        return easyHp;
+      case Difficulty.normal:
+        return 1;
+      case Difficulty.hard:
+        return hardHp;
+    }
+  }
+
+  static double speedFactor(Difficulty difficulty) {
+    switch (difficulty) {
+      case Difficulty.easy:
+        return easySpeed;
+      case Difficulty.normal:
+        return 1;
+      case Difficulty.hard:
+        return hardSpeed;
+    }
+  }
+
+  static double fireRateFactor(Difficulty difficulty) {
+    switch (difficulty) {
+      case Difficulty.easy:
+        return easyFireRate;
+      case Difficulty.normal:
+        return 1;
+      case Difficulty.hard:
+        return hardFireRate;
+    }
+  }
+
+  static double bulletSpeedFactor(Difficulty difficulty) {
+    switch (difficulty) {
+      case Difficulty.easy:
+        return easyBulletSpeed;
+      case Difficulty.normal:
+        return 1;
+      case Difficulty.hard:
+        return hardBulletSpeed;
+    }
+  }
+
+  /// What the level pays. Hard pays well over normal on purpose: it is the
+  /// only reason to replay a level the player has already cleared.
+  static double coinFactor(Difficulty difficulty) {
+    switch (difficulty) {
+      case Difficulty.easy:
+        return easyCoin;
+      case Difficulty.normal:
+        return 1;
+      case Difficulty.hard:
+        return hardCoin;
+    }
+  }
+
+  /// Lives added to, or taken off, a run at this setting.
+  static int livesBonus(Difficulty difficulty) {
+    switch (difficulty) {
+      case Difficulty.easy:
+        return easyLives;
+      case Difficulty.normal:
+        return 0;
+      case Difficulty.hard:
+        return hardLives;
+    }
+  }
+
+  /// The name shown on a button.
+  static String labelOf(Difficulty difficulty) {
+    switch (difficulty) {
+      case Difficulty.easy:
+        return 'EASY';
+      case Difficulty.normal:
+        return 'NORMAL';
+      case Difficulty.hard:
+        return 'HARD';
+    }
+  }
+
+  /// One line of plain English about what the setting costs and pays.
+  static String describe(Difficulty difficulty) {
+    switch (difficulty) {
+      case Difficulty.easy:
+        return 'Lighter hulls, less fire, two extra lives. Pays 30 per cent '
+            'less.';
+      case Difficulty.normal:
+        return 'The game as it was tuned.';
+      case Difficulty.hard:
+        return 'Heavier hulls, far more fire, one life fewer. Pays 75 per '
+            'cent more.';
+    }
   }
 }

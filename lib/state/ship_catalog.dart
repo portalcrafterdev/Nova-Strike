@@ -26,8 +26,6 @@ class ShipDef {
     required this.nose,
     required this.span,
     required this.sweep,
-    required this.spine,
-    required this.keel,
     required this.tailSpan,
   });
 
@@ -58,8 +56,6 @@ class ShipDef {
   final double nose;
   final double span;
   final double sweep;
-  final double spine;
-  final double keel;
   final double tailSpan;
 
   String get key => id.name;
@@ -88,8 +84,6 @@ class ShipCatalog {
       nose: 26,
       span: 20,
       sweep: -14,
-      spine: 7,
-      keel: 4,
       tailSpan: 7,
     ),
     ShipDef(
@@ -107,8 +101,6 @@ class ShipCatalog {
       nose: 31,
       span: 15,
       sweep: -17,
-      spine: 6,
-      keel: 3,
       tailSpan: 5,
     ),
     ShipDef(
@@ -126,8 +118,6 @@ class ShipCatalog {
       nose: 22,
       span: 24,
       sweep: -10,
-      spine: 9,
-      keel: 7,
       tailSpan: 10,
     ),
   ];

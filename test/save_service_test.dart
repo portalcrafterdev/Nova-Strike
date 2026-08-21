@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:novastrike/audio/audio_settings.dart';
 import 'package:novastrike/levels/difficulty_curve.dart';
 import 'package:novastrike/state/player_progress.dart';
+import 'package:novastrike/levels/level_spec.dart';
 import 'package:novastrike/state/save_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -41,7 +42,7 @@ void main() {
     test('works with no plugin behind it', () {
       final service = SaveService();
       expect(service.isReady, isFalse);
-      expect(service.loadHighestLevel(), 1);
+      expect(service.loadHighestLevel(Difficulty.normal), 1);
       expect(service.loadCoins(), 0);
       expect(service.loadAudioSettings(), AudioSettings());
     });
@@ -152,7 +153,7 @@ void main() {
       await save.init();
 
       expect(save.version, SaveService.currentVersion);
-      expect(save.loadHighestLevel(), 42);
+      expect(save.loadHighestLevel(Difficulty.normal), 42);
       expect(save.loadCoins(), 800);
     });
 

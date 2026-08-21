@@ -7,10 +7,10 @@ import '../../audio/sfx.dart';
 import '../../levels/difficulty_curve.dart';
 import '../../theme/palette.dart';
 import '../nova_game.dart';
-import '../render3d/camera3d.dart';
-import '../render3d/mesh.dart';
-import '../render3d/mesh_renderer.dart';
-import '../render3d/scene3d.dart';
+import '../render/camera.dart';
+import '../render/sprite.dart';
+import '../render/sprite_renderer.dart';
+import '../render/scene.dart';
 import '../world/play_area.dart';
 
 /// The six gems. Picking one up again refreshes it rather than stacking.
@@ -83,9 +83,9 @@ extension PowerUpLook on PowerUpType {
 }
 
 /// A gem turning as it drifts down the lane toward the player.
-class PowerUp extends Component with Renderable3D, HasGameReference<NovaGame> {
+class PowerUp extends Component with Renderable, HasGameReference<NovaGame> {
   PowerUp({required this.type, required Vector3 spawn})
-    : _mesh = Meshes.gem(
+    : _sprite = Sprites.gem(
         body: type.color,
         trim: Palette.pickupTrim(type.color),
         size: Metrics.powerUpRadius,
@@ -94,7 +94,7 @@ class PowerUp extends Component with Renderable3D, HasGameReference<NovaGame> {
   }
 
   final PowerUpType type;
-  final Mesh _mesh;
+  final Sprite2D _sprite;
   final Vector3 position = Vector3.zero();
 
   double _age = 0;
@@ -137,10 +137,10 @@ class PowerUp extends Component with Renderable3D, HasGameReference<NovaGame> {
   }
 
   @override
-  void render3d(Canvas canvas, MeshRenderer renderer, Camera3D camera) {
+  void paint(Canvas canvas, SpriteRenderer renderer, GameCamera camera) {
     renderer.draw(
       canvas,
-      _mesh,
+      _sprite,
       position: position,
       // Turning in the plane only. A gem that also pitched went edge on twice
       // a turn, which is the moment the player is trying to read its colour.

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:vector_math/vector_math_64.dart' show Vector3;
 
-import '../../game/render3d/camera3d.dart';
-import '../../game/render3d/mesh.dart';
-import '../../game/render3d/mesh_renderer.dart';
+import '../../game/render/camera.dart';
+import '../../game/render/sprite.dart';
+import '../../game/render/sprite_renderer.dart';
 import '../../theme/palette.dart';
 
 /// The badge above the game name: the player's own hull.
@@ -36,7 +36,7 @@ class _MarkPainter extends CustomPainter {
   /// cluttered at the size a mark is read at: the canards break away from the
   /// fuselage and the pods become two loose bars. A mark wants one silhouette,
   /// so this is the airframe on its own.
-  static final Mesh _mesh = Meshes.ship(
+  static final Sprite2D _sprite = Sprites.ship(
     hull: Palette.playerHull,
     hullDark: Palette.playerHullDark,
     accent: Palette.playerAccent,
@@ -58,13 +58,13 @@ class _MarkPainter extends CustomPainter {
     ).createShader(rect);
     canvas.drawRect(rect, _halo);
 
-    final camera = Camera3D(
+    final camera = GameCamera(
       viewportWidth: size.width,
       viewportHeight: size.height,
       zoom: size.shortestSide / Metrics.shipMarkFit,
       laneOrigin: size.height / 2,
     );
-    MeshRenderer(camera).draw(canvas, _mesh, position: Vector3.zero());
+    SpriteRenderer(camera).draw(canvas, _sprite, position: Vector3.zero());
   }
 
   @override

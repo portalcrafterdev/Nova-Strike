@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flame/components.dart' hide Vector3;
@@ -10,10 +9,10 @@ import '../../theme/palette.dart';
 import '../effects/explosion.dart';
 import '../effects/shockwave.dart';
 import '../nova_game.dart';
-import '../render3d/camera3d.dart';
-import '../render3d/mesh.dart';
-import '../render3d/mesh_renderer.dart';
-import '../render3d/scene3d.dart';
+import '../render/camera.dart';
+import '../render/sprite.dart';
+import '../render/sprite_renderer.dart';
+import '../render/scene.dart';
 import '../world/play_area.dart';
 import 'bullet.dart';
 
@@ -29,13 +28,13 @@ import 'bullet.dart';
 /// by the collision pass. It is not aimed at any one thing, so there is nothing
 /// for that pass to test it against.
 class FlakShell extends Component
-    with Renderable3D, HasGameReference<NovaGame> {
+    with Renderable, HasGameReference<NovaGame> {
   FlakShell({required Vector3 spawn, required this.damage}) {
     position.setFrom(spawn);
     _origin = spawn.z;
   }
 
-  static final Mesh _mesh = Meshes.shell(
+  static final Sprite2D _sprite = Sprites.shell(
     body: Palette.flakShell,
     trim: Palette.flakShellDark,
     accent: Palette.flakBurst,
@@ -178,15 +177,14 @@ class FlakShell extends Component
   }
 
   @override
-  void render3d(Canvas canvas, MeshRenderer renderer, Camera3D camera) {
+  void paint(Canvas canvas, SpriteRenderer renderer, GameCamera camera) {
     // A shell tumbles rather than flying nose first, so it never reads as a
     // small missile.
     renderer.draw(
       canvas,
-      _mesh,
+      _sprite,
       position: position,
-      roll: _spin,
-      pitch: math.sin(_spin) * 0.3,
+      yaw: _spin,
     );
   }
 }

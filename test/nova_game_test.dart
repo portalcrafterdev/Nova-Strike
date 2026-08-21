@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:vector_math/vector_math_64.dart' show Vector3;
 import 'package:flame_test/flame_test.dart';
 import 'package:flutter/widgets.dart';
@@ -14,8 +15,8 @@ import 'package:novastrike/game/components/power_up.dart';
 import 'package:novastrike/game/effects/debris.dart';
 import 'package:novastrike/theme/palette.dart';
 import 'package:novastrike/game/nova_game.dart';
-import 'package:novastrike/game/render3d/camera3d.dart';
-import 'package:novastrike/game/render3d/mesh_renderer.dart';
+import 'package:novastrike/game/render/camera.dart';
+import 'package:novastrike/game/render/sprite_renderer.dart';
 import 'package:novastrike/game/world/parallax_bg.dart';
 import 'package:novastrike/game/systems/spawner.dart';
 import 'package:novastrike/game/world/play_area.dart';
@@ -181,6 +182,90 @@ void main() {
       },
     );
 
+    // Level 14 is the first elite swarm, flying straight past the player.
+    // Levels 33 and 47 send their waves in from the sides, and 90 fires
+    // bursts. Between them they used to produce shots leaving the wing or the
+    // tail of a hull that points the other way, up to 96 degrees off the nose,
+    // which read as a mistake rather than as a threat.
+    for (final level in [14, 33, 47, 90]) {
+      testWithGame<NovaGame>(
+        'every shot on level $level leaves the nose, not the wing',
+        () => buildGame(level),
+        (game) async {
+          await game.ready();
+
+          var checked = 0;
+          var worst = 0.0;
+          for (var frame = 0; frame < 60 * 10; frame++) {
+            game.update(1 / 60);
+            await Future<void>.delayed(Duration.zero);
+
+            for (final bullet in game.world.children.query<Bullet>()) {
+              if (bullet.owner != BulletOwner.enemy) {
+                continue;
+              }
+              checked++;
+              // Every hull points down the lane, so this is the angle between
+              // the shot and the way the ship that fired it is facing.
+              final off =
+                  math.atan2(bullet.velocity.x, -bullet.velocity.z).abs() *
+                  180 /
+                  math.pi;
+              if (off > worst) {
+                worst = off;
+              }
+            }
+          }
+
+          expect(checked, greaterThan(0), reason: 'nothing fired at all');
+          expect(
+            worst,
+            lessThanOrEqualTo(56),
+            reason: 'a shot left $worst degrees off the nose',
+          );
+        },
+      );
+    }
+
+    testWithGame<NovaGame>(
+      'everything the player fires flies straight up the lane',
+      // Level 30 has every weapon unlocked, and the spread gem is forced on,
+      // so this covers the cannon, the wing pods, the railgun and the gem at
+      // once. Each of those used to fan out at an angle, which put diagonal
+      // streaks either side of the ship.
+      () => buildGame(30),
+      (game) async {
+        await game.ready();
+        game.player.applyPowerUp(PowerUpType.spread);
+        game.player.applyPowerUp(PowerUpType.doubleShot);
+
+        var checked = 0;
+        for (var frame = 0; frame < 60 * 8; frame++) {
+          game.update(1 / 60);
+          await Future<void>.delayed(Duration.zero);
+
+          for (final bullet in game.world.children.query<Bullet>()) {
+            if (bullet.owner != BulletOwner.player) {
+              continue;
+            }
+            checked++;
+            expect(
+              bullet.velocity.x.abs(),
+              lessThan(0.001),
+              reason: 'a player shot is drifting sideways',
+            );
+            expect(
+              bullet.velocity.z,
+              greaterThan(0),
+              reason: 'a player shot is not going up the lane',
+            );
+          }
+        }
+
+        expect(checked, greaterThan(0), reason: 'the ship never fired');
+      },
+    );
+
     testWithGame<NovaGame>(
       'the star field is made of stars, never of scratches',
       () => buildGame(1),
@@ -189,11 +274,11 @@ void main() {
         await tick(game, 1);
 
         final field = game.world.children.query<ParallaxBackground>().first;
-        final camera = Camera3D(
+        final camera = GameCamera(
           viewportWidth: Metrics.worldWidth,
           viewportHeight: Metrics.worldHeight,
         );
-        final renderer = MeshRenderer(camera);
+        final renderer = SpriteRenderer(camera);
 
         // Both at rest and at full warp. The near layer used to be stretched
         // into a line, which did not read as a fast star, it read as a white
@@ -201,7 +286,7 @@ void main() {
         for (final warp in [0.0, 1.0]) {
           game.warpFactor = warp;
           final spy = _CanvasSpy();
-          field.render3d(spy, renderer, camera);
+          field.paint(spy, renderer, camera);
 
           expect(
             spy.circles,
@@ -928,22 +1013,35 @@ void main() {
       () => buildGame(Tuning.podFirstLevel),
       (game) async {
         await game.ready();
+        game.player.position.setValues(0, 0, 0);
         await tick(game, Tuning.podInterval + 0.2);
 
-        final angled = game.bullets.active.where(
+        // Wide of the cannon, but running parallel to it. The pods used to
+        // splay outward, which put two permanent diagonals either side of the
+        // ship. The coverage now comes from where they sit, not where they
+        // point.
+        final wide = game.bullets.active.where(
           (bullet) =>
-              bullet.owner == BulletOwner.player && bullet.velocity.x.abs() > 1,
+              bullet.owner == BulletOwner.player &&
+              bullet.position.x.abs() > Tuning.podOffset * 0.8,
         );
         expect(
-          angled.length,
+          wide.length,
           greaterThanOrEqualTo(2),
-          reason: 'the pods are firing straight up the lane like the cannon',
+          reason: 'the pods are firing from the middle like the cannon',
         );
         expect(
-          angled.any((bullet) => bullet.velocity.x < 0),
+          wide.any((bullet) => bullet.position.x < 0),
           isTrue,
           reason: 'both pods should fire, not just one',
         );
+        for (final bullet in wide) {
+          expect(
+            bullet.velocity.x.abs(),
+            lessThan(0.001),
+            reason: 'a pod shot is angled rather than straight',
+          );
+        }
       },
     );
 

@@ -1,6 +1,15 @@
 // Pure data describing a level. No Flame types are allowed in this file so
 // the whole level layer can be unit tested without a game loop.
 
+/// How hard the campaign is being played at.
+///
+/// The same 1500 levels at any of the three. What changes is how much every
+/// wave brings and how much the level pays for clearing it, so a player who
+/// finds normal too steep has somewhere to go that is not quitting, and one
+/// who finds it too soft has a reason to come back to a level they have
+/// already beaten.
+enum Difficulty { easy, normal, hard }
+
 /// What sort of level this is. Every 15th level in a chapter is a boss, the
 /// 14th is an elite swarm, the rest are normal.
 enum LevelKind {
@@ -194,6 +203,7 @@ class LevelSpec {
     required this.musicTrack,
     this.modifier = LevelModifier.none,
     this.obstacleRate = 0,
+    this.difficulty = Difficulty.normal,
   });
 
   final int number;
@@ -213,6 +223,10 @@ class LevelSpec {
 
   /// Seconds between rocks drifting down the lane. Zero means a clear lane.
   final double obstacleRate;
+
+  /// The setting this spec was built for. The multipliers above already have
+  /// it folded in, so nothing downstream has to apply it a second time.
+  final Difficulty difficulty;
 
   /// True when this level has debris in it.
   bool get hasObstacles => obstacleRate > 0;
@@ -264,6 +278,7 @@ class LevelSpec {
       musicTrack: musicTrack ?? this.musicTrack,
       modifier: modifier,
       obstacleRate: obstacleRate,
+      difficulty: difficulty,
     );
   }
 }
