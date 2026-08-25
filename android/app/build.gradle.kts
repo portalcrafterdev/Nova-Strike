@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.novastrike"
+    namespace = "com.portalcrafter.novastrike"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -15,8 +15,9 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.novastrike"
+        // The id the store and the device know the game by. It can never be
+        // changed once the game has shipped, so it is set before that happens.
+        applicationId = "com.portalcrafter.novastrike"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

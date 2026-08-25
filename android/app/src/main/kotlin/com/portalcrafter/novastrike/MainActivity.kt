@@ -1,4 +1,4 @@
-package com.example.novastrike
+package com.portalcrafter.novastrike
 
 import io.flutter.embedding.android.FlutterActivity
 
