@@ -189,6 +189,17 @@ class EnemyCatalog {
   static EnemyStats of(EnemyType type) => entries[type]!;
 
   /// Enemy families available in a chapter, in unlock order.
+  /// The families a chapter introduces, which is empty for most chapters.
+  static List<EnemyType> newIn(int chapter) {
+    final list = <EnemyType>[];
+    for (final entry in entries.values) {
+      if (entry.unlockChapter == chapter) {
+        list.add(entry.type);
+      }
+    }
+    return list;
+  }
+
   static List<EnemyType> unlockedIn(int chapter) {
     final list = <EnemyType>[];
     for (final entry in entries.values) {

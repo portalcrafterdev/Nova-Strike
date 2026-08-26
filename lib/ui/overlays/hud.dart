@@ -290,6 +290,34 @@ class _BossBar extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 5),
+            // The layers in front of the core, each shown only while it is
+            // what the player's shots are going into. Without these the bar
+            // below sits at full through the whole opening of six of the ten
+            // fights and then drops all at once.
+            ValueListenableBuilder<BossArmour>(
+              valueListenable: game.bossArmourNotifier,
+              builder: (context, armour, _) => Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (armour.hasPods && armour.pods > 0) ...[
+                    _ArmourBar(
+                      value: armour.pods,
+                      tint: Palette.bossCore,
+                      label: 'PODS',
+                    ),
+                    const SizedBox(height: 3),
+                  ],
+                  if (armour.hasShield && armour.shield > 0) ...[
+                    _ArmourBar(
+                      value: armour.shield,
+                      tint: Palette.bossShield,
+                      label: 'SHIELD',
+                    ),
+                    const SizedBox(height: 3),
+                  ],
+                ],
+              ),
+            ),
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
@@ -302,6 +330,49 @@ class _BossBar extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// A thin bar for one layer of boss armour, named so the player knows what
+/// they are chewing through rather than watching an anonymous second bar.
+class _ArmourBar extends StatelessWidget {
+  const _ArmourBar({
+    required this.value,
+    required this.tint,
+    required this.label,
+  });
+
+  final double value;
+  final Color tint;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(
+          width: Metrics.bossArmourLabelWidth,
+          child: Text(
+            label,
+            style: AppType.hudSmall.copyWith(
+              color: tint,
+              fontSize: Metrics.bossArmourLabelSize,
+            ),
+          ),
+        ),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: LinearProgressIndicator(
+              value: value,
+              minHeight: Metrics.bossArmourBarHeight,
+              backgroundColor: Palette.bossHealthBack,
+              color: tint,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

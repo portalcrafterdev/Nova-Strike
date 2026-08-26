@@ -42,6 +42,30 @@ class WaveProgress {
   final int total;
 }
 
+/// What a boss is holding in front of its core, as fractions of full.
+///
+/// The health bar reads core hit points, and on six of the ten archetypes the
+/// core takes nothing at all until the pods are gone and the shield is broken.
+/// Reported on its own, that bar sits at full while the player empties their
+/// guns into the thing and then falls off a cliff. These are the layers the
+/// shots are actually going into, so the readout can move while they do.
+class BossArmour {
+  const BossArmour({required this.shield, required this.pods});
+
+  /// No boss, or a boss with nothing in front of its core.
+  static const BossArmour none = BossArmour(shield: -1, pods: -1);
+
+  /// Shield arc left, or negative on an archetype that has no arc.
+  final double shield;
+
+  /// Weak point hit points left across every pod, or negative when the
+  /// archetype has none.
+  final double pods;
+
+  bool get hasShield => shield >= 0;
+  bool get hasPods => pods >= 0;
+}
+
 /// The world holds every gameplay component.
 ///
 /// It carries the time scale so the killing blow on a boss can slow the action
@@ -136,6 +160,11 @@ class NovaGame extends FlameGame<NovaWorld> with HasCollisionDetection {
   /// Boss health as a fraction, or a negative value when there is no boss.
   final ValueNotifier<double> bossHealthNotifier = ValueNotifier(-1);
   final ValueNotifier<String> bossNameNotifier = ValueNotifier('');
+
+  /// What the boss is holding in front of its core.
+  final ValueNotifier<BossArmour> bossArmourNotifier = ValueNotifier(
+    BossArmour.none,
+  );
 
   /// Freighter health on an escort level, or a negative value when there is
   /// no freighter.
@@ -241,6 +270,7 @@ class NovaGame extends FlameGame<NovaWorld> with HasCollisionDetection {
     modifierNotifier.value = spec.modifier.label;
     bossHealthNotifier.value = -1;
     bossNameNotifier.value = '';
+    bossArmourNotifier.value = BossArmour.none;
     escortNotifier.value = -1;
     survivalNotifier.value = spec.kind == LevelKind.survival
         ? Tuning.survivalDuration
@@ -504,6 +534,7 @@ class NovaGame extends FlameGame<NovaWorld> with HasCollisionDetection {
     levelNotifier.dispose();
     waveNotifier.dispose();
     bossHealthNotifier.dispose();
+    bossArmourNotifier.dispose();
     bossNameNotifier.dispose();
     modifierNotifier.dispose();
     powerUpsNotifier.dispose();

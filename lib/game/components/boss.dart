@@ -78,6 +78,46 @@ class Boss extends Component
   /// reads.
   double get healthFraction => (hp / spec.maxHp).clamp(0.0, 1.0);
 
+  /// Shield left as a fraction, or a negative value on an archetype with no
+  /// shield arc.
+  double get shieldFraction => spec.hasShieldArc && maxShieldHp > 0
+      ? (shieldHp / maxShieldHp).clamp(0.0, 1.0)
+      : -1;
+
+  /// Weak point hit points left across every pod, as a fraction of what they
+  /// started with. Negative on an archetype with no pods.
+  ///
+  /// Summed rather than counted, so the readout moves while a pod is being
+  /// worn down instead of only when one dies.
+  double get podFraction {
+    if (spec.weakPoints <= 0) {
+      return -1;
+    }
+    final full = spec.maxHp * Tuning.bossPodHpFraction * spec.weakPoints;
+    if (full <= 0) {
+      return -1;
+    }
+    var left = 0.0;
+    for (final pod in pods) {
+      if (pod.isMounted && pod.hp > 0) {
+        left += pod.hp;
+      }
+    }
+    return (left / full).clamp(0.0, 1.0);
+  }
+
+  /// Pushes the armour readout to the heads up display.
+  ///
+  /// Called on every hit that lands anywhere on the boss. Without it the bar
+  /// only moves once the core is finally exposed, which reads as a boss that
+  /// ignores the first half of the fight.
+  void publishArmour() {
+    game.bossArmourNotifier.value = BossArmour(
+      shield: shieldFraction,
+      pods: podFraction,
+    );
+  }
+
   @override
   Vector3 get worldPosition => position;
 
@@ -105,6 +145,7 @@ class Boss extends Component
     }
 
     game.bossNameNotifier.value = spec.name;
+    publishArmour();
     game.bossHealthNotifier.value = 1;
   }
 
@@ -233,6 +274,7 @@ class Boss extends Component
           Metrics.shakeDurationSmall,
         );
       }
+      publishArmour();
       return;
     }
     if (podsAlive) {
@@ -246,11 +288,15 @@ class Boss extends Component
     game.audio.play(Sfx.bossHit);
     game.bossHealthNotifier.value = healthFraction;
 
+    // The phase that matches the health it is now on, rather than the next one
+    // along. A burst big enough to cross both thresholds at once used to leave
+    // the boss in phase two while it was already inside phase three's health,
+    // firing the weaker set of patterns until the following shot landed.
     final fraction = healthFraction;
-    if (phase == 1 && fraction <= Tuning.bossPhaseTwoThreshold) {
-      _enterPhase(2);
-    } else if (phase == 2 && fraction <= Tuning.bossPhaseThreeThreshold) {
+    if (phase < 3 && fraction <= Tuning.bossPhaseThreeThreshold) {
       _enterPhase(3);
+    } else if (phase < 2 && fraction <= Tuning.bossPhaseTwoThreshold) {
+      _enterPhase(2);
     }
 
     if (hp <= 0) {
@@ -271,6 +317,7 @@ class Boss extends Component
     // carry one, so the fight does not end as a damage race.
     if (spec.hasShieldArc && next == 3) {
       shieldHp = maxShieldHp * 0.5;
+      publishArmour();
     }
   }
 
@@ -435,6 +482,9 @@ class BossPod extends Component
       boss.onPodDestroyed();
       removeFromParent();
     }
+    // Reported on every hit, not only on the kill. Wearing a pod down is the
+    // opening of the fight, and it used to move nothing on screen at all.
+    boss.publishArmour();
   }
 
   @override

@@ -160,6 +160,13 @@ class LevelGenerator {
     if (level < ModifierTuning.firstModifiedLevel) {
       return LevelModifier.none;
     }
+    // A level that introduces a new enemy is already teaching something.
+    // Putting a twist on top means the player cannot tell which of the two is
+    // beating them, and level 16 got the swarm modifier on the same level it
+    // first showed a darter.
+    if (_debutTypes(level, Tuning.chapterOf(level)).isNotEmpty) {
+      return LevelModifier.none;
+    }
     if (rng.nextDouble() > ModifierTuning.chance) {
       return LevelModifier.none;
     }
@@ -186,9 +193,34 @@ class LevelGenerator {
     final movements = unlockedMovements(chapter);
     final patterns = unlockedBulletPatterns(chapter);
 
+    // The level a chapter opens on is where the player meets whatever that
+    // chapter unlocked. Left alone, the generator could hand them a level made
+    // entirely of a family and a bullet pattern they had never seen: level 16
+    // came out as two waves of darters, both firing three way spreads, with a
+    // swarm modifier on top, and measured two and a half times the enemy fire
+    // of the elite level before it.
+    //
+    // So a debut is arranged rather than rolled. The newcomer takes the last
+    // wave, which is the one the level builds toward, and every wave before it
+    // is a family the player already knows how to fight. Leaving it to the
+    // weighting would have meant a chapter that sometimes never showed its own
+    // new enemy on its opening level.
+    final debutTypes = _debutTypes(level, chapter);
+    final newcomer = debutTypes.isEmpty
+        ? null
+        : debutTypes[rng.nextInt(debutTypes.length)];
+
     final waves = <WaveSpec>[];
     for (var i = 0; i < count; i++) {
-      final type = _pickType(rng, types, chapter);
+      final EnemyType type;
+      if (newcomer == null) {
+        type = _pickType(rng, types, chapter);
+      } else if (i == count - 1) {
+        type = newcomer;
+      } else {
+        type = _familiarType(rng, types, chapter) ??
+            _pickType(rng, types, chapter);
+      }
       final stats = EnemyCatalog.of(type);
       final delaySpread = Tuning.waveDelayMax - Tuning.waveDelayMin;
       waves.add(
@@ -226,6 +258,40 @@ class LevelGenerator {
         spawnDelay: 0.5,
       ),
     ];
+  }
+
+  /// The families this level is responsible for introducing.
+  ///
+  /// Empty unless the level opens a chapter and that chapter unlocks a family,
+  /// which is most of them: the schedule adds an enemy at chapters 1, 2, 4, 6,
+  /// 9, 13, 18 and 24 and nothing in between.
+  static List<EnemyType> _debutTypes(int level, int chapter) {
+    if (Tuning.levelInChapter(level) != 1) {
+      return const [];
+    }
+    final fresh = EnemyCatalog.newIn(chapter);
+    // Chapter one is every family's debut only because it is the first. There
+    // is nothing familiar to sit it next to, so it is left alone.
+    if (chapter <= 1) {
+      return const [];
+    }
+    return fresh;
+  }
+
+  /// A family the player has already met, or null in the first chapter where
+  /// there is no such thing.
+  static EnemyType? _familiarType(
+    Random rng,
+    List<EnemyType> types,
+    int chapter,
+  ) {
+    final older = types
+        .where((type) => EnemyCatalog.of(type).unlockChapter < chapter)
+        .toList();
+    if (older.isEmpty) {
+      return null;
+    }
+    return older[rng.nextInt(older.length)];
   }
 
   static EnemyType _pickType(Random rng, List<EnemyType> types, int chapter) {

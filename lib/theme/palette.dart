@@ -435,6 +435,12 @@ class Metrics {
   static const double slowMotionDuration = 0.7;
   static const double invulnerabilityBlinkRate = 12;
   static const double bossHealthBarHeight = 10;
+
+  /// The pod and shield bars above it. Thinner than the health bar, because
+  /// they are what stands in front of the fight rather than the fight itself.
+  static const double bossArmourBarHeight = 5;
+  static const double bossArmourLabelWidth = 52;
+  static const double bossArmourLabelSize = 9;
   static const double bossHealthBarTop = 24;
 
   /// Height of the dark band drawn behind the top of the display, below the

@@ -18,6 +18,14 @@ class Tuning {
 
   // Waves.
   static const int baseWaveCount = 2;
+  /// How many waves of a newly unlocked family a chapter's opening level may
+  /// use.
+  ///
+  /// One, so a new enemy is met alongside one the player already knows how to
+  /// fight. Every other level in the chapter is free to use as many as it
+  /// likes: by then the family is not new.
+  static const int debutWaves = 1;
+
   static const int waveCountLevelStep = 60;
   static const int maxWaveCount = 6;
   static const double waveDelayMin = 1.1;
