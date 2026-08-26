@@ -70,6 +70,7 @@ class AdsController extends ChangeNotifier {
   bool _ready = false;
   bool _interstitialReady = false;
   bool _rewardedReady = false;
+  bool _loadingRewarded = false;
   bool _showing = false;
   int _clearedSinceAd = 0;
   DateTime? _lastInterstitial;
@@ -223,14 +224,30 @@ class AdsController extends ChangeNotifier {
     _interstitialReady = ok ?? false;
   }
 
-  Future<void> _fillRewarded() async {
-    if (!_ready || _rewardedReady) {
+  /// Makes sure a rewarded ad is on the shelf, retrying a load that failed.
+  ///
+  /// Called by any screen that is about to offer one, and by the game when the
+  /// player reaches their last life. Without it a single failed load at start
+  /// up, which is normal on a phone that has not found the network yet, left
+  /// [canOfferReward] false for the rest of the session and the extra life
+  /// could never be offered again.
+  Future<void> prepareReward() async {
+    await _fillRewarded(timeout: topUpTimeout);
+  }
+
+  Future<void> _fillRewarded({Duration timeout = loadTimeout}) async {
+    if (!_ready || _rewardedReady || _loadingRewarded) {
       return;
     }
+    // Guarded, because the sheet asking and the last life hook asking can
+    // arrive together, and two loads in flight would leak one of the ads.
+    _loadingRewarded = true;
     final ok = await _guard(
       () => backend.loadRewarded(ids.rewarded),
       fallback: false,
+      timeout: timeout,
     );
+    _loadingRewarded = false;
     _rewardedReady = ok ?? false;
     notifyListeners();
   }

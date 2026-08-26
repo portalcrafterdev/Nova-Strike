@@ -34,6 +34,15 @@ class _GameOverSheetState extends State<GameOverSheet> {
 
   NovaGame get game => widget.game;
 
+  @override
+  void initState() {
+    super.initState();
+    // A last chance to fetch one. The game asks for a rewarded ad as soon as
+    // the player is down to their last life, so by here it is normally already
+    // waiting, and this only matters when that load failed or never ran.
+    widget.ads?.prepareReward();
+  }
+
   Future<void> _watchForLife() async {
     final ads = widget.ads;
     if (ads == null || _busy || !game.canRevive) {
@@ -56,11 +65,25 @@ class _GameOverSheetState extends State<GameOverSheet> {
   @override
   Widget build(BuildContext context) {
     final ads = widget.ads;
-    // Offered only when there is an ad loaded and the run has not already
-    // spent its revive. A button promising a life that then does nothing is
-    // worse than no button at all.
-    final canWatch = ads != null && ads.canOfferReward && game.canRevive;
+    if (ads == null) {
+      return _build(canWatch: false);
+    }
+    // Rebuilt when the controller changes, so an ad that finishes loading a
+    // moment after this sheet opened still puts the button on screen. Reading
+    // the flag once and never listening was why the offer could be missing
+    // even with an ad sitting ready.
+    return ListenableBuilder(
+      listenable: ads,
+      builder: (context, _) => _build(
+        // Offered only when there is an ad loaded and the run has not already
+        // spent its revive. A button promising a life that then does nothing
+        // is worse than no button at all.
+        canWatch: ads.canOfferReward && game.canRevive,
+      ),
+    );
+  }
 
+  Widget _build({required bool canWatch}) {
     return SpaceScrim(
       child: SafeArea(
         child: Padding(

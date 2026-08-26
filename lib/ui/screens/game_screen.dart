@@ -1,6 +1,7 @@
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 
+import '../../ads/ads_controller.dart';
 import '../../app.dart';
 import '../../audio/sfx.dart';
 import '../../game/nova_game.dart';
@@ -47,6 +48,25 @@ class _GameScreenState extends State<GameScreen> {
       endless: widget.endless,
       onQuit: _leave,
     );
+    // Fetch the extra life ad while the player still has a life to lose. A
+    // rewarded ad takes seconds to arrive, and asking for it at the moment the
+    // ship blows up means the offer is not there when the sheet opens.
+    _ads = scope.ads;
+    _game!.livesNotifier.addListener(_onLivesChanged);
+  }
+
+  AdsController? _ads;
+
+  void _onLivesChanged() {
+    if (_game?.livesNotifier.value == 1) {
+      _ads?.prepareReward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _game?.livesNotifier.removeListener(_onLivesChanged);
+    super.dispose();
   }
 
   Future<void> _leave() async {

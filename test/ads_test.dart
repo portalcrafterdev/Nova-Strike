@@ -9,6 +9,11 @@ class _FakeAds extends AdsBackend {
   int rewardedShown = 0;
   bool rewardEarned = true;
 
+  /// Whether a rewarded load succeeds. False stands in for a phone that has
+  /// not found the network yet.
+  bool rewardedLoads = true;
+  int rewardedLoadCount = 0;
+
   @override
   bool get isSupported => true;
 
@@ -25,7 +30,10 @@ class _FakeAds extends AdsBackend {
   }
 
   @override
-  Future<bool> loadRewarded(String unitId) async => true;
+  Future<bool> loadRewarded(String unitId) async {
+    rewardedLoadCount++;
+    return rewardedLoads;
+  }
 
   @override
   Future<bool> showRewarded() async {
@@ -40,6 +48,13 @@ const AdIds _testIds = AdIds(
   interstitial: 'interstitial',
   rewarded: 'rewarded',
 );
+
+/// Lets the loads kicked off by [AdsController.init] finish.
+Future<void> _settle(AdsController ads) async {
+  for (var turn = 0; turn < 10; turn++) {
+    await Future<void>.delayed(Duration.zero);
+  }
+}
 
 /// An initialised controller with its first ads on the shelf.
 ///
@@ -211,6 +226,53 @@ void main() {
       final backend = _FakeAds();
       final ads = await ready(backend);
       expect(await ads.showRewarded(), isTrue);
+    });
+
+    test('a load that failed at start up is retried later', () async {
+      // The one that stopped the extra life ever appearing. A phone that has
+      // not found the network by the time the game starts failed this load
+      // once, and nothing ever asked again for the rest of the session.
+      final backend = _FakeAds()..rewardedLoads = false;
+      final ads = AdsController(backend: backend, ids: _testIds);
+      await ads.init();
+      await _settle(ads);
+      expect(ads.canOfferReward, isFalse);
+
+      backend.rewardedLoads = true;
+      await ads.prepareReward();
+      expect(
+        ads.canOfferReward,
+        isTrue,
+        reason: 'one failed load left the extra life off for good',
+      );
+    });
+
+    test('asking twice at once does not load two ads', () async {
+      final backend = _FakeAds()..rewardedLoads = false;
+      final ads = AdsController(backend: backend, ids: _testIds);
+      await ads.init();
+      await _settle(ads);
+
+      backend.rewardedLoads = true;
+      backend.rewardedLoadCount = 0;
+      // The last life hook and the sheet opening can land together.
+      await Future.wait([ads.prepareReward(), ads.prepareReward()]);
+      expect(backend.rewardedLoadCount, 1);
+    });
+
+    test('the controller tells its listeners when one arrives', () async {
+      // The sheet is already on screen by the time a late ad lands, so it has
+      // to be told rather than having read the flag once and stopped looking.
+      final backend = _FakeAds()..rewardedLoads = false;
+      final ads = AdsController(backend: backend, ids: _testIds);
+      await ads.init();
+      await _settle(ads);
+
+      var told = 0;
+      ads.addListener(() => told++);
+      backend.rewardedLoads = true;
+      await ads.prepareReward();
+      expect(told, greaterThan(0));
     });
 
     test('is not offered again until another one has loaded', () async {
