@@ -31,6 +31,13 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- Play Games Services looks its project up by this tag. Without it
+             the SDK throws the moment anything touches sign in, so it is
+             declared here and the value it points at is filled in from the
+             Play Console. -->
+        <meta-data
+            android:name="com.google.android.gms.games.APP_ID"
+            android:value="@string/games_project_id" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

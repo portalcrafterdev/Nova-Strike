@@ -7,10 +7,12 @@ import '../../theme/palette.dart';
 import '../../theme/typography.dart';
 import '../widgets/difficulty_bar.dart';
 import '../widgets/nova_button.dart';
+import '../widgets/play_games_bar.dart';
 import '../widgets/ship_mark.dart';
 import '../widgets/star_field.dart';
 import 'game_screen.dart';
 import 'hangar_screen.dart';
+import 'leaderboard_screen.dart';
 import 'level_map.dart';
 import 'settings_screen.dart';
 import 'upgrade_screen.dart';
@@ -31,7 +33,7 @@ class MainMenu extends StatelessWidget {
       body: StarField(
         child: SafeArea(
           child: AnimatedBuilder(
-            animation: progress,
+            animation: Listenable.merge([progress, scope.games]),
             builder: (context, _) {
               // The game runs portrait, so the title sits above the way in.
               // Centred when the screen has room for it and scrolling when it
@@ -70,9 +72,31 @@ class MainMenu extends StatelessWidget {
                             coins: progress.coins,
                             stars: progress.totalStars,
                           ),
+                          const SizedBox(height: 14),
+                          // Signing in belongs next to who the player is, not
+                          // behind a screen they have to think to open.
+                          PlayGamesBar(
+                            games: scope.games,
+                            onSignIn: () {
+                              scope.audio.play(Sfx.buttonTap);
+                              if (scope.games.isSignedIn) {
+                                Navigator.of(
+                                  context,
+                                ).pushNamed(LeaderboardScreen.route);
+                              } else {
+                                scope.games.signIn();
+                              }
+                            },
+                            onOpenRanks: () {
+                              scope.audio.play(Sfx.buttonTap);
+                              Navigator.of(
+                                context,
+                              ).pushNamed(LeaderboardScreen.route);
+                            },
+                          ),
                         ],
                       ),
-                      const SizedBox(height: 22),
+                      const SizedBox(height: 14),
                       // The setting sits directly above PLAY, because it
                       // decides what PLAY is about to hand the player and it
                       // changes the level number in the line above it.
@@ -149,6 +173,9 @@ class MainMenu extends StatelessWidget {
                             ],
                           ),
                           const SizedBox(height: 12),
+                          // Full width, because at half width the label comes
+                          // out as UPGRA and a button that cannot say what it
+                          // does is not a button.
                           NovaButton(
                             label: 'UPGRADES',
                             icon: Icons.upgrade,

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      The Play Games Services project id, from the top of the Play Games
+      Services page in the Play Console. It is a number, not a package name,
+      and it looks like 123456789012.
+
+      The Play Games SDK reads it out of the manifest, so it has to live here
+      as a resource rather than in Dart. Until it is real, the game keeps the
+      leaderboard screen in its "not set up yet" state and never calls the SDK,
+      which is why a placeholder here cannot crash anything.
+
+      The same console also needs the SHA-1 of whichever keystore signed the
+      build registered as an OAuth client, debug keystore included, or sign in
+      fails on a developer's own phone while working fine from the store.
+    -->
+    <string name="games_project_id" translatable="false">000000000000</string>
+    <!--
+      One gotcha worth knowing before the real id goes in: a string resource
+      whose whole value is digits can be folded into an integer by the resource
+      compiler, and the SDK then rejects it as an invalid app id. If that
+      happens, put a backslash and a space in front of the number.
+    -->
+</resources>

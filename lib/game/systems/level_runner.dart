@@ -34,6 +34,8 @@ class LevelRunner extends Component with HasGameReference<NovaGame> {
   final Random _rng = Random(4);
 
   int _waveIndex = 0;
+  int _wavesSent = 0;
+  double _levelElapsed = 0;
   double _obstacleTimer = 0;
   int _obstacleShape = 0;
   double _waitTimer = 0;
@@ -56,7 +58,32 @@ class LevelRunner extends Component with HasGameReference<NovaGame> {
   bool get isOutro => _outro != Outro.none;
 
   /// Waves already sent, for the heads up display.
-  int get waveNumber => _waveIndex;
+  int get waveNumber => _wavesSent;
+
+  /// Seconds of play so far, with the run home excluded.
+  double get levelElapsed => _levelElapsed;
+
+  /// Whether the level has run long enough to be allowed to end.
+  ///
+  /// [RunnerTuning.minLevelDuration] is a floor rather than a target: reaching it
+  /// only lifts the block on finishing, it never cuts a level short.
+  bool get floorReached => _levelElapsed >= RunnerTuning.minLevelDuration;
+
+  /// The wave to send when the scripted list has run out but the floor has
+  /// not been reached.
+  ///
+  /// The level's own waves are reused as a rotation, so an extended level
+  /// still draws only on the families, formations and patterns its chapter
+  /// has unlocked. The gem guarantee is stripped: an elite level promises one
+  /// power up, not one per lap.
+  WaveSpec? get _encoreWave {
+    if (spec.waves.isEmpty) {
+      return null;
+    }
+    return spec.waves[_waveIndex % spec.waves.length].copyWith(
+      dropsPowerUp: false,
+    );
+  }
 
   @override
   Future<void> onLoad() async {
@@ -73,6 +100,11 @@ class LevelRunner extends Component with HasGameReference<NovaGame> {
       _updateOutro(dt);
       return;
     }
+
+    // The level clock. It stops at the outro on purpose: the run home is a
+    // victory lap, not part of the fight, and counting it would let a level
+    // reach its floor by playing an animation.
+    _levelElapsed += dt;
 
     _updateObstacles(dt);
 
@@ -91,12 +123,7 @@ class LevelRunner extends Component with HasGameReference<NovaGame> {
         break;
     }
 
-    if (_victoryTimer >= 0) {
-      _victoryTimer -= dt;
-      if (_victoryTimer <= 0) {
-        _victoryTimer = -1;
-        _beginOutro();
-      }
+    if (_finishing(dt)) {
       return;
     }
 
@@ -131,6 +158,16 @@ class LevelRunner extends Component with HasGameReference<NovaGame> {
     }
 
     if (spec.boss != null && !_bossSpawned) {
+      // The boss waits behind the escort until there is only its own share of
+      // the clock left, so a boss level reaches the floor with build up rather
+      // than by keeping the player in the fight longer than the fight wants
+      // to last.
+      if (_levelElapsed <
+              RunnerTuning.minLevelDuration -
+                  RunnerTuning.bossFightAllowance &&
+          _sendEncore()) {
+        return;
+      }
       _spawnBoss();
       return;
     }
@@ -143,7 +180,50 @@ class LevelRunner extends Component with HasGameReference<NovaGame> {
       return;
     }
 
+    // Every scripted wave is done. A level that is over in fifteen seconds
+    // does not read as a level, so the lane keeps refilling until the floor is
+    // reached. A player who took their time is already past it and sees none
+    // of this.
+    if (!floorReached && _sendEncore()) {
+      return;
+    }
+
     _victoryTimer = RunnerTuning.levelCompleteDelay;
+  }
+
+  /// Counts down the beat between winning and the run home.
+  ///
+  /// Returns true while the level is finishing, so every caller stops there.
+  /// This is where the floor is finally enforced: whatever route a level took
+  /// to being won, it cannot start its run home until it has been a level for
+  /// [RunnerTuning.minLevelDuration]. The wave loops above mean the lane is
+  /// normally still busy when that happens, so this backstop only really bites
+  /// after a boss dies early, where an explosion and the slow motion are
+  /// playing out anyway.
+  bool _finishing(double dt) {
+    if (_victoryTimer < 0) {
+      return false;
+    }
+    // Held at zero rather than allowed to run negative. A negative timer reads
+    // as "not finishing" to the check above, which would drop a level that is
+    // waiting out its floor back into the wave logic it has already left.
+    _victoryTimer = max(0, _victoryTimer - dt);
+    if (_victoryTimer <= 0 && floorReached) {
+      _victoryTimer = -1;
+      _beginOutro();
+    }
+    return true;
+  }
+
+  /// Sends one more wave from the rotation. False when there is nothing to
+  /// send, which keeps a spec with no waves from hanging the level.
+  bool _sendEncore() {
+    final wave = _encoreWave;
+    if (wave == null) {
+      return false;
+    }
+    _startWave(wave);
+    return true;
   }
 
   /// Survival: no wave list, just a clock and a lane that keeps refilling.
@@ -152,12 +232,7 @@ class LevelRunner extends Component with HasGameReference<NovaGame> {
   /// running order, so a survival level still draws on the families and
   /// formations its chapter has unlocked.
   void _updateSurvival(double dt) {
-    if (_victoryTimer >= 0) {
-      _victoryTimer -= dt;
-      if (_victoryTimer <= 0) {
-        _victoryTimer = -1;
-        _beginOutro();
-      }
+    if (_finishing(dt)) {
       return;
     }
 
@@ -185,12 +260,7 @@ class LevelRunner extends Component with HasGameReference<NovaGame> {
 
   /// Escort: the freighter crosses the lane and everything else is in the way.
   void _updateEscort(double dt) {
-    if (_victoryTimer >= 0) {
-      _victoryTimer -= dt;
-      if (_victoryTimer <= 0) {
-        _victoryTimer = -1;
-        _beginOutro();
-      }
+    if (_finishing(dt)) {
       return;
     }
 
@@ -229,7 +299,10 @@ class LevelRunner extends Component with HasGameReference<NovaGame> {
     if (_gateOpened) {
       return;
     }
-    if (_waveIndex >= spec.waves.length && !_waveActive) {
+    // The ring does not appear until the floor is reached. The wave loop below
+    // keeps the lane busy until then, so the ship is not left flying at an
+    // empty sky waiting for its way out.
+    if (_waveIndex >= spec.waves.length && !_waveActive && floorReached) {
       _gateOpened = true;
       game.world.add(WarpGate());
     }
@@ -335,10 +408,15 @@ class LevelRunner extends Component with HasGameReference<NovaGame> {
   void _startWave(WaveSpec wave) {
     _spawner.spawnWave(wave);
     _waveIndex++;
+    _wavesSent++;
     _waveActive = true;
     _waveElapsed = 0;
     _warned = false;
-    game.waveNotifier.value = WaveProgress(_waveIndex, spec.waves.length);
+    // The total stays what the level was scripted for. Once a level runs past
+    // that, the count exceeds the total and the display drops the total rather
+    // than growing it, because a denominator that keeps moving reads as making
+    // no progress at all.
+    game.waveNotifier.value = WaveProgress(_wavesSent, spec.waves.length);
     game.audio.play(Sfx.waveIncoming);
   }
 
@@ -358,9 +436,15 @@ class LevelRunner extends Component with HasGameReference<NovaGame> {
     if (_waveIndex < spec.waves.length) {
       return spec.waves[_waveIndex].spawnDelay;
     }
-    return spec.boss != null
-        ? RunnerTuning.bossArrivalDelay
-        : RunnerTuning.levelCompleteDelay;
+    if (spec.boss != null) {
+      return RunnerTuning.bossArrivalDelay;
+    }
+    // Still short of the floor, so another wave is coming and it is paced like
+    // any other rather than arriving the instant the last one died.
+    if (!floorReached && spec.waves.isNotEmpty) {
+      return spec.waves[_waveIndex % spec.waves.length].spawnDelay;
+    }
+    return RunnerTuning.levelCompleteDelay;
   }
 
   void _spawnBoss() {

@@ -41,6 +41,32 @@ Future<void> tick(NovaGame game, double seconds, {double step = 1 / 60}) async {
   }
 }
 
+/// Runs the loop for [seconds], destroying every enemy the moment it arrives.
+///
+/// A level holds a floor of [RunnerTuning.minLevelDuration] and keeps sending
+/// waves until it is reached, so a test that wants to watch a level finish has
+/// to keep clearing the lane for that long rather than killing one wave and
+/// waiting for a sheet that is not coming.
+Future<void> clearingTick(NovaGame game, double seconds) async {
+  const step = 1 / 60;
+  var elapsed = 0.0;
+  while (elapsed < seconds) {
+    for (final enemy in game.world.children.query<EnemyShip>().toList()) {
+      enemy.destroy(byPlayer: true);
+    }
+    game.update(step);
+    await Future<void>.delayed(Duration.zero);
+    elapsed += step;
+  }
+}
+
+/// Long enough for a level to clear its floor and play its run home.
+final double _throughLevel =
+    RunnerTuning.minLevelDuration +
+    RunnerTuning.bonusRunDuration +
+    RunnerTuning.warpDuration +
+    4;
+
 /// The first level of a given kind, so an objective test never hard codes a
 /// number that a tuning change could move.
 int levelOfKind(LevelKind kind) {
@@ -343,15 +369,10 @@ void main() {
         await game.ready();
         await tick(game, 2);
 
-        for (final enemy in game.world.children.query<EnemyShip>().toList()) {
-          enemy.destroy(byPlayer: true);
-        }
-        // Long enough to cover the wave clearing, the victory lap and the
-        // warp out that now sit between the last kill and the sheet.
-        await tick(
-          game,
-          3 + RunnerTuning.bonusRunDuration + RunnerTuning.warpDuration,
-        );
+        // The lane is kept clear for the whole level rather than emptied once.
+        // A level runs to its floor now, so killing the first wave and waiting
+        // only means standing in front of the next one.
+        await clearingTick(game, _throughLevel);
 
         expect(game.status, GameStatus.complete);
         expect(game.overlays.isActive(NovaGame.levelCompleteOverlay), isTrue);
@@ -406,11 +427,13 @@ void main() {
         expect(game.spec.isBoss, isTrue);
         expect(game.spec.boss, isNotNull);
 
-        await tick(game, 2);
-        for (final enemy in game.world.children.query<EnemyShip>().toList()) {
-          enemy.destroy(byPlayer: true);
-        }
-        await tick(game, 4);
+        // The boss waits behind the escort until only its own share of the
+        // clock is left, so the escort has to be fought through rather than
+        // cleared once.
+        await clearingTick(
+          game,
+          RunnerTuning.minLevelDuration - RunnerTuning.bossFightAllowance + 6,
+        );
 
         final bosses = game.world.children.query<Boss>();
         expect(bosses, hasLength(1));
@@ -1270,11 +1293,9 @@ void main() {
       () => buildGame(1),
       (game) async {
         await game.ready();
-        await tick(game, 2);
-        for (final enemy in List.of(game.enemies)) {
-          enemy.destroy(byPlayer: true);
-        }
-        await tick(game, 3);
+        // Fought all the way to the floor, because that is when a level is
+        // allowed to start its run home.
+        await clearingTick(game, RunnerTuning.minLevelDuration + 3);
 
         expect(game.runner.isOutro, isTrue);
         expect(
@@ -1336,10 +1357,7 @@ void main() {
       () => buildGame(1),
       (game) async {
         await game.ready();
-        await tick(game, 2);
-        for (final enemy in List.of(game.enemies)) {
-          enemy.destroy(byPlayer: true);
-        }
+        await clearingTick(game, RunnerTuning.minLevelDuration + 1);
 
         // Part way through the warp the field is streaming and the ship is
         // pulling away down the lane.
@@ -1404,14 +1422,7 @@ void main() {
       () => buildEndless(1),
       (game) async {
         await game.ready();
-        await tick(game, 2);
-        for (final enemy in List.of(game.enemies)) {
-          enemy.destroy(byPlayer: true);
-        }
-        await tick(
-          game,
-          3 + RunnerTuning.bonusRunDuration + RunnerTuning.warpDuration + 0.5,
-        );
+        await clearingTick(game, _throughLevel);
 
         expect(game.levelNumber, 2);
         expect(game.status, GameStatus.playing);
@@ -1530,11 +1541,11 @@ void main() {
       () => buildGame(levelOfKind(LevelKind.gate)),
       (game) async {
         await game.ready();
-        for (var i = 0; i < 40 && game.gate == null; i++) {
-          await tick(game, 1);
-          for (final enemy in List.of(game.enemies)) {
-            enemy.destroy(byPlayer: true);
-          }
+        // The ring is held back until the level has reached its floor, so this
+        // fights through the waves that fill that time rather than waiting on
+        // the first lull.
+        for (var i = 0; i < 60 && game.gate == null; i++) {
+          await clearingTick(game, 1);
         }
 
         expect(game.gate, isNotNull);

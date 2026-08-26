@@ -147,6 +147,19 @@ class WaveSpec {
 
   /// Elite waves guarantee a gem drop from the last enemy killed.
   final bool dropsPowerUp;
+
+  WaveSpec copyWith({double? spawnDelay, bool? dropsPowerUp}) {
+    return WaveSpec(
+      type: type,
+      count: count,
+      formation: formation,
+      entry: entry,
+      movement: movement,
+      bullets: bullets,
+      spawnDelay: spawnDelay ?? this.spawnDelay,
+      dropsPowerUp: dropsPowerUp ?? this.dropsPowerUp,
+    );
+  }
 }
 
 /// One boss encounter. Phase thresholds are fixed at 66 and 33 percent, so a

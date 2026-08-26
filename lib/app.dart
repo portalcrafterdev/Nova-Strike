@@ -1,26 +1,31 @@
 import 'package:flutter/material.dart';
 
 import 'audio/audio_controller.dart';
+import 'services/game_services_controller.dart';
 import 'state/player_progress.dart';
 import 'state/save_service.dart';
 import 'theme/palette.dart';
 import 'theme/typography.dart';
 import 'ui/screens/boot_screen.dart';
+import 'ui/screens/leaderboard_screen.dart';
 import 'ui/screens/level_map.dart';
 import 'ui/screens/main_menu.dart';
 import 'ui/screens/settings_screen.dart';
 import 'ui/screens/hangar_screen.dart';
 import 'ui/screens/upgrade_screen.dart';
 
-/// Gives every screen the three long lived services.
+/// Gives every screen the long lived services.
 ///
-/// The game has no accounts and no server, so this is all the dependency
-/// injection it needs.
+/// The game keeps no account of its own and talks to no server of its own, so
+/// this is all the dependency injection it needs. [games] is the one exception
+/// to the offline rule, and it is optional on purpose: a screen that does not
+/// care about the store never has to be handed one.
 class AppScope extends InheritedWidget {
   const AppScope({
     required this.audio,
     required this.progress,
     required this.save,
+    required this.games,
     required super.child,
     super.key,
   });
@@ -28,6 +33,9 @@ class AppScope extends InheritedWidget {
   final AudioController audio;
   final PlayerProgress progress;
   final SaveService save;
+
+  /// Google Play Games on Android, Game Center on iOS.
+  final GameServicesController games;
 
   static AppScope of(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<AppScope>();
@@ -46,12 +54,14 @@ class NovaStrikeApp extends StatefulWidget {
     required this.audio,
     required this.progress,
     required this.save,
+    required this.games,
     super.key,
   });
 
   final AudioController audio;
   final PlayerProgress progress;
   final SaveService save;
+  final GameServicesController games;
 
   @override
   State<NovaStrikeApp> createState() => _NovaStrikeAppState();
@@ -95,6 +105,7 @@ class _NovaStrikeAppState extends State<NovaStrikeApp>
       audio: widget.audio,
       progress: widget.progress,
       save: widget.save,
+      games: widget.games,
       child: MaterialApp(
         title: 'Nova Strike',
         debugShowCheckedModeBanner: false,
@@ -120,6 +131,7 @@ class _NovaStrikeAppState extends State<NovaStrikeApp>
           SettingsScreen.route: (_) => const SettingsScreen(),
           UpgradeScreen.route: (_) => const UpgradeScreen(),
           HangarScreen.route: (_) => const HangarScreen(),
+          LeaderboardScreen.route: (_) => const LeaderboardScreen(),
         },
       ),
     );

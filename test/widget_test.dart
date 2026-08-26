@@ -6,6 +6,7 @@ import 'package:novastrike/audio/audio_controller.dart';
 import 'package:novastrike/levels/difficulty_curve.dart';
 import 'package:novastrike/levels/level_generator.dart';
 import 'package:novastrike/levels/level_spec.dart';
+import 'package:novastrike/services/game_services_controller.dart';
 import 'package:novastrike/state/player_progress.dart';
 import 'package:novastrike/game/nova_game.dart';
 import 'package:novastrike/state/save_service.dart';
@@ -13,6 +14,7 @@ import 'package:novastrike/ui/overlays/pause_overlay.dart';
 import 'package:novastrike/state/ship_catalog.dart';
 import 'package:novastrike/ui/screens/game_over_sheet.dart';
 import 'package:novastrike/ui/screens/hangar_screen.dart';
+import 'package:novastrike/ui/screens/leaderboard_screen.dart';
 import 'package:novastrike/ui/screens/level_complete_sheet.dart';
 import 'package:novastrike/ui/screens/level_map.dart';
 import 'package:novastrike/ui/screens/main_menu.dart';
@@ -29,6 +31,9 @@ Future<AppScope> scopeFor(Widget child) async {
     audio: AudioController(save),
     progress: progress,
     save: save,
+    // The shipped id table, which is still placeholders, so no screen under
+    // test ever reaches for a platform channel that has no answer here.
+    games: GameServicesController(platform: TargetPlatform.android),
     child: MaterialApp(home: child),
   );
 }
@@ -49,6 +54,61 @@ void main() {
     expect(find.text('ENDLESS'), findsOneWidget);
     expect(find.text('HANGAR'), findsOneWidget);
     expect(find.textContaining('LEVEL 1 OF 1500'), findsOneWidget);
+  });
+
+  testWidgets('the menu offers sign in without opening another screen', (
+    tester,
+  ) async {
+    // Signing in is a once ever thing done on the way past. Behind two taps it
+    // may as well not be there.
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+
+    final scope = await scopeFor(const MainMenu());
+    await tester.pumpWidget(scope);
+    await tester.pump();
+
+    expect(tester.takeException(), isNull, reason: 'the menu does not lay out');
+    expect(
+      find.text('SIGN IN WITH ${scope.games.serviceName.toUpperCase()}'),
+      findsOneWidget,
+      reason: 'there is no way to sign in from the menu',
+    );
+    // And the way through to the boards is right beside it.
+    expect(find.byIcon(Icons.leaderboard), findsOneWidget);
+  });
+
+  testWidgets('the ranks screen opens from the menu and stands on its own', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+
+    final scope = await scopeFor(const MainMenu());
+    await tester.pumpWidget(
+      AppScope(
+        audio: scope.audio,
+        progress: scope.progress,
+        save: scope.save,
+        games: scope.games,
+        child: const MaterialApp(home: LeaderboardScreen()),
+      ),
+    );
+    await tester.pump();
+
+    expect(tester.takeException(), isNull, reason: 'the screen does not lay out');
+
+    // The store is not set up in this build, so the screen has to be worth
+    // opening on the strength of the numbers held on the phone alone.
+    expect(find.text('YOUR RUN'), findsOneWidget);
+    expect(find.text('Levels cleared'), findsOneWidget);
+    expect(find.text('Stars'), findsOneWidget);
+    expect(find.text('SIGN IN'), findsOneWidget);
+    // The ids are still placeholders in this build, so the screen has to say
+    // why a score would go nowhere rather than pretending it went somewhere.
+    expect(find.textContaining('no ids yet'), findsOneWidget);
   });
 
   testWidgets('the menu picks the setting before it offers PLAY', (
@@ -226,15 +286,18 @@ void main() {
     final save = SaveService();
     await save.init();
     final audio = AudioController(save);
+    final games = GameServicesController(platform: TargetPlatform.android);
     await tester.pumpWidget(
       AppScope(
         audio: audio,
         progress: PlayerProgress(save)..load(),
         save: save,
+        games: games,
         child: NovaStrikeApp(
           audio: audio,
           progress: PlayerProgress(save)..load(),
           save: save,
+          games: games,
         ),
       ),
     );

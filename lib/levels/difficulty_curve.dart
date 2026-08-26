@@ -206,7 +206,15 @@ class Tuning {
   static const double freighterWidth = 78;
   static const double freighterHeight = 26;
   static const double freighterSpeed = 26;
-  static const double freighterStartDepth = 500;
+
+  /// Where the freighter starts its crossing.
+  ///
+  /// An escort level is exactly as long as this journey, so this is the one
+  /// place its length is set. At 500 the crossing came in under the floor in
+  /// [RunnerTuning.minLevelDuration]; the extra distance buys the seconds
+  /// without slowing the freighter down, which would have made it a drag to
+  /// nurse rather than a thing to protect.
+  static const double freighterStartDepth = 640;
   static const double freighterEndDepth = -60;
   static const double freighterBaseHp = 260;
   static const double freighterHpPerLevel = 0.02;
@@ -707,6 +715,26 @@ class RunnerTuning {
   /// A wave is never considered clear before this, which covers the frame or
   /// two it takes newly added components to mount.
   static const double waveMinDuration = 1.0;
+
+  /// The shortest a level is allowed to be, in seconds of play.
+  ///
+  /// Measured before this existed, a normal level was over in nine to fourteen
+  /// seconds for a player who cleared each wave the moment it arrived, which
+  /// is barely long enough to register as a level at all. The lane keeps
+  /// refilling until this much time has passed, so the floor holds no matter
+  /// how heavily upgraded the ship is.
+  ///
+  /// It is a floor and not a target. A level that runs longer because the
+  /// player is taking their time is left alone.
+  static const double minLevelDuration = 30.0;
+
+  /// How much of [minLevelDuration] is reserved for the boss itself.
+  ///
+  /// Boss levels reach the floor by holding the boss back behind escort waves,
+  /// so without this the boss would not arrive until the floor had already
+  /// passed and the fight would be an epilogue. This much of the clock is left
+  /// for the fight.
+  static const double bossFightAllowance = 12.0;
 
   /// Beat between the last enemy dying and the level complete sheet.
   static const double levelCompleteDelay = 0.8;

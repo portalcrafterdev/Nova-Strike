@@ -202,8 +202,13 @@ class _Objective extends StatelessWidget {
         if (objective.isEmpty) {
           return ValueListenableBuilder<WaveProgress>(
             valueListenable: game.waveNotifier,
+            // Past the scripted total the level is running on its clock
+            // instead of its wave list, so the total is dropped rather than
+            // shown as a fraction that can never be completed.
             builder: (context, wave, _) => Text(
-              'WAVE ${wave.current}/${wave.total}',
+              wave.current > wave.total
+                  ? 'WAVE ${wave.current}'
+                  : 'WAVE ${wave.current}/${wave.total}',
               style: AppType.hudSmall,
             ),
           );
