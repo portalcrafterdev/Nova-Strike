@@ -5,6 +5,7 @@ import '../../audio/sfx.dart';
 import '../../levels/difficulty_curve.dart';
 import '../../theme/palette.dart';
 import '../../theme/typography.dart';
+import '../widgets/ad_banner.dart';
 import '../widgets/difficulty_bar.dart';
 import '../widgets/nova_button.dart';
 import '../widgets/play_games_bar.dart';
@@ -30,6 +31,8 @@ class MainMenu extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: Palette.spaceDeep,
+      // Menu screens only. Never over the play area.
+      bottomNavigationBar: AdBanner(ads: scope.ads),
       body: StarField(
         child: SafeArea(
           child: AnimatedBuilder(
@@ -115,9 +118,13 @@ class MainMenu extends StatelessWidget {
                             label: 'PLAY',
                             primary: true,
                             icon: Icons.play_arrow,
-                            onPressed: () {
+                            onPressed: () async {
                               scope.audio.play(Sfx.buttonTap);
-                              Navigator.of(context).push(
+                              final navigator = Navigator.of(context);
+                              // Before the level, not over it. The ad has to
+                              // be gone by the time the ship is flying.
+                              await scope.ads.onGameStart();
+                              navigator.push(
                                 MaterialPageRoute<void>(
                                   builder: (_) => GameScreen(
                                     levelNumber: progress.highestLevelUnlocked,
@@ -130,9 +137,11 @@ class MainMenu extends StatelessWidget {
                           NovaButton(
                             label: 'ENDLESS',
                             icon: Icons.all_inclusive,
-                            onPressed: () {
+                            onPressed: () async {
                               scope.audio.play(Sfx.buttonTap);
-                              Navigator.of(context).push(
+                              final navigator = Navigator.of(context);
+                              await scope.ads.onGameStart();
+                              navigator.push(
                                 MaterialPageRoute<void>(
                                   builder: (_) => const GameScreen(
                                     levelNumber: 1,

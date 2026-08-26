@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:novastrike/app.dart';
+import 'package:novastrike/ads/ads_backend.dart';
+import 'package:novastrike/ads/ads_controller.dart';
 import 'package:novastrike/audio/audio_controller.dart';
 import 'package:novastrike/levels/difficulty_curve.dart';
 import 'package:novastrike/levels/level_generator.dart';
@@ -34,6 +36,7 @@ Future<AppScope> scopeFor(Widget child) async {
     // The shipped id table, which is still placeholders, so no screen under
     // test ever reaches for a platform channel that has no answer here.
     games: GameServicesController(platform: TargetPlatform.android),
+    ads: AdsController(backend: const NoAdsBackend()),
     child: MaterialApp(home: child),
   );
 }
@@ -93,6 +96,7 @@ void main() {
         progress: scope.progress,
         save: scope.save,
         games: scope.games,
+        ads: scope.ads,
         child: const MaterialApp(home: LeaderboardScreen()),
       ),
     );
@@ -287,17 +291,20 @@ void main() {
     await save.init();
     final audio = AudioController(save);
     final games = GameServicesController(platform: TargetPlatform.android);
+    final ads = AdsController(backend: const NoAdsBackend());
     await tester.pumpWidget(
       AppScope(
         audio: audio,
         progress: PlayerProgress(save)..load(),
         save: save,
         games: games,
+        ads: ads,
         child: NovaStrikeApp(
           audio: audio,
           progress: PlayerProgress(save)..load(),
           save: save,
           games: games,
+          ads: ads,
         ),
       ),
     );

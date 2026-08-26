@@ -8,6 +8,7 @@ import '../../state/player_progress.dart';
 import '../../theme/palette.dart';
 import '../../theme/typography.dart';
 import '../widgets/difficulty_bar.dart';
+import '../widgets/ad_banner.dart';
 import '../widgets/nova_button.dart';
 import '../widgets/star_field.dart';
 import 'game_screen.dart';
@@ -71,6 +72,8 @@ class _LevelMapState extends State<LevelMap> {
     return StarField(
       child: Scaffold(
         backgroundColor: Colors.transparent,
+        // Menu screens only. Never over the play area.
+        bottomNavigationBar: AdBanner(ads: scope.ads),
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
@@ -103,9 +106,11 @@ class _LevelMapState extends State<LevelMap> {
                       itemBuilder: (context, index) => _ChapterBlock(
                         chapter: index + 1,
                         progress: scope.progress,
-                        onSelect: (level) {
+                        onSelect: (level) async {
                           scope.audio.play(Sfx.buttonTap);
-                          Navigator.of(context).push(
+                          final navigator = Navigator.of(context);
+                          await scope.ads.onGameStart();
+                          navigator.push(
                             MaterialPageRoute<void>(
                               builder: (_) => GameScreen(levelNumber: level),
                             ),

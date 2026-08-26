@@ -88,6 +88,15 @@ class PlayerShip extends Component
 
   bool get isInvulnerable => _invulnerable > 0;
 
+  /// Makes the ship untouchable for [seconds], blinking while it lasts.
+  ///
+  /// Used by a revive, where the player is dropped back into a fight that has
+  /// carried on without them.
+  void grantGrace(double seconds) {
+    _invulnerable = seconds;
+    _blink = 0;
+  }
+
   double get hitRadius => Metrics.playerHitRadius;
 
   bool hasPowerUp(PowerUpType type) => (_powerTimers[type] ?? 0) > 0;

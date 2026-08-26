@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'ads/ads_controller.dart';
 import 'audio/audio_controller.dart';
 import 'services/game_services_controller.dart';
 import 'state/player_progress.dart';
@@ -26,6 +27,7 @@ class AppScope extends InheritedWidget {
     required this.progress,
     required this.save,
     required this.games,
+    required this.ads,
     required super.child,
     super.key,
   });
@@ -36,6 +38,9 @@ class AppScope extends InheritedWidget {
 
   /// Google Play Games on Android, Game Center on iOS.
   final GameServicesController games;
+
+  /// Every ad the game shows, and the rules about when it may show one.
+  final AdsController ads;
 
   static AppScope of(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<AppScope>();
@@ -55,6 +60,7 @@ class NovaStrikeApp extends StatefulWidget {
     required this.progress,
     required this.save,
     required this.games,
+    required this.ads,
     super.key,
   });
 
@@ -62,6 +68,7 @@ class NovaStrikeApp extends StatefulWidget {
   final PlayerProgress progress;
   final SaveService save;
   final GameServicesController games;
+  final AdsController ads;
 
   @override
   State<NovaStrikeApp> createState() => _NovaStrikeAppState();
@@ -106,6 +113,7 @@ class _NovaStrikeAppState extends State<NovaStrikeApp>
       progress: widget.progress,
       save: widget.save,
       games: widget.games,
+      ads: widget.ads,
       child: MaterialApp(
         title: 'Nova Strike',
         debugShowCheckedModeBanner: false,

@@ -8,6 +8,7 @@ import '../../levels/level_spec.dart';
 import '../../services/game_services_controller.dart';
 import '../../theme/palette.dart';
 import '../../theme/typography.dart';
+import '../widgets/ad_banner.dart';
 import '../widgets/nova_button.dart';
 import '../widgets/star_field.dart';
 
@@ -30,6 +31,8 @@ class LeaderboardScreen extends StatelessWidget {
     return StarField(
       child: Scaffold(
         backgroundColor: Colors.transparent,
+        // Menu screens only. Never over the play area.
+        bottomNavigationBar: AdBanner(ads: scope.ads),
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,

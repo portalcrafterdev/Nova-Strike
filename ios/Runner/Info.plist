@@ -16,6 +16,13 @@
 	<string>6.0</string>
 	<key>CFBundleName</key>
 	<string>novastrike</string>
+	<!-- Google's iOS test app. The AdMob app id supplied so far belongs to the
+	     Android listing, and an Android app id will not serve to an iOS build.
+	     Replace this with the real one once an iOS app exists in AdMob, and
+	     fill in AdIds.iosLive in lib/ads/ad_ids.dart at the same time. The ads
+	     SDK reads this at launch and crashes if it is absent. -->
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-3940256099942544~1458002511</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

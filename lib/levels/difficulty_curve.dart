@@ -136,6 +136,17 @@ class Tuning {
   /// covers it.
   static const double playerTouchOffsetZ = 26;
   static const double playerInvulnerability = 1.5;
+
+  /// Lives handed back for watching a rewarded ad. One, and once per run.
+  static const int reviveLives = 1;
+
+  /// Grace after a revive, in seconds.
+  ///
+  /// Longer than an ordinary respawn. The player has been looking at an ad for
+  /// half a minute rather than at the screen, and coming back into a lane full
+  /// of fire with the usual second and a half would spend the life they just
+  /// earned before they had their thumb down.
+  static const double reviveGrace = 3.0;
   static const double playerFireInterval = 0.22;
   static const double playerBulletSpeed = 620;
   static const double playerBulletDamage = 10;

@@ -107,6 +107,8 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   SharedPreferences.setMockInitialValues(<String, Object>{});
 
+  _reviveTests();
+
   group('a level running', () {
     testWithGame<NovaGame>(
       'starts with a player, a runner and full lives',
@@ -1696,4 +1698,144 @@ class _CanvasSpy implements Canvas {
 
   @override
   dynamic noSuchMethod(Invocation invocation) => null;
+}
+
+void _reviveTests() {
+  group('the extra life from a rewarded ad', () {
+    testWithGame<NovaGame>(
+      'hands back a life and carries on where the ship fell',
+      () => buildGame(12),
+      (game) async {
+        await game.ready();
+        await tick(game, 3);
+
+        final wave = game.waveNotifier.value;
+        game.addScore(4321);
+        final score = game.score;
+
+        // Lose the run.
+        while (game.lives > 0) {
+          game.onPlayerHit();
+        }
+        expect(game.status, GameStatus.failed);
+        expect(game.canRevive, isTrue);
+
+        game.revive();
+
+        expect(game.status, GameStatus.playing);
+        expect(game.lives, Tuning.reviveLives);
+        expect(game.livesNotifier.value, Tuning.reviveLives);
+        expect(
+          game.score,
+          score,
+          reason: 'a revive that wiped the score would be worse than RETRY',
+        );
+        expect(
+          game.waveNotifier.value,
+          wave,
+          reason: 'the level restarted instead of carrying on',
+        );
+        expect(
+          game.levelNumber,
+          12,
+          reason: 'the revive moved the player off the level they were on',
+        );
+      },
+    );
+
+    testWithGame<NovaGame>(
+      'clears the fire that killed the ship',
+      () => buildGame(40),
+      (game) async {
+        await game.ready();
+        // Long enough for a level this far in to fill the lane.
+        await tick(game, 8);
+        expect(
+          game.bullets.active,
+          isNotEmpty,
+          reason: 'nothing was in the air, so this proves nothing',
+        );
+
+        while (game.lives > 0) {
+          game.onPlayerHit();
+        }
+        game.revive();
+
+        expect(
+          game.bullets.active,
+          isEmpty,
+          reason: 'the player was dropped back into the pattern that beat them',
+        );
+        expect(
+          game.player.isInvulnerable,
+          isTrue,
+          reason: 'no grace after watching an ad for half a minute',
+        );
+      },
+    );
+
+    testWithGame<NovaGame>(
+      'is offered once per run, not once per death',
+      () => buildGame(12),
+      (game) async {
+        await game.ready();
+        await tick(game, 2);
+
+        while (game.lives > 0) {
+          game.onPlayerHit();
+        }
+        game.revive();
+        expect(game.revivedThisRun, isTrue);
+
+        while (game.lives > 0) {
+          game.onPlayerHit();
+        }
+        expect(game.status, GameStatus.failed);
+        expect(
+          game.canRevive,
+          isFalse,
+          reason: 'a player could buy their way past every level for good',
+        );
+
+        // A second call does nothing rather than quietly handing out a life.
+        game.revive();
+        expect(game.status, GameStatus.failed);
+        expect(game.lives, 0);
+      },
+    );
+
+    testWithGame<NovaGame>(
+      'retrying gives the next run its own revive',
+      () => buildGame(12),
+      (game) async {
+        await game.ready();
+        await tick(game, 2);
+        while (game.lives > 0) {
+          game.onPlayerHit();
+        }
+        game.revive();
+        expect(game.revivedThisRun, isTrue);
+
+        await game.retry();
+        expect(
+          game.revivedThisRun,
+          isFalse,
+          reason: 'a fresh run started already out of revives',
+        );
+      },
+    );
+
+    testWithGame<NovaGame>(
+      'cannot be taken while the level is still being played',
+      () => buildGame(12),
+      (game) async {
+        await game.ready();
+        await tick(game, 2);
+        final lives = game.lives;
+        expect(game.canRevive, isFalse);
+        game.revive();
+        expect(game.lives, lives, reason: 'a free life mid level');
+      },
+    );
+  });
 }

@@ -496,7 +496,45 @@ class NovaGame extends FlameGame<NovaWorld> with HasCollisionDetection {
   /// Restarts the current level with no wait and no gate, because friction
   /// here is what makes players quit.
   Future<void> retry() async {
+    revivedThisRun = false;
     await startLevel(levelNumber);
+  }
+
+  /// Whether the run has already spent its one revive.
+  ///
+  /// One per run, not one per ad. Without that a good player never has to
+  /// finish a level, they just keep buying their way past the moment they
+  /// should have lost, and the level stops meaning anything.
+  bool revivedThisRun = false;
+
+  /// Whether a revive can be offered right now.
+  bool get canRevive => status == GameStatus.failed && !revivedThisRun;
+
+  /// Hands back a life and drops the player into the fight where they left it.
+  ///
+  /// Deliberately not a restart. The whole value of the extra life is keeping
+  /// the score, the wave and the progress through the level, and a revive that
+  /// sent the player back to the start would be a worse deal than the RETRY
+  /// button sitting next to it, which costs nothing.
+  void revive() {
+    if (!canRevive) {
+      return;
+    }
+    revivedThisRun = true;
+    status = GameStatus.playing;
+    overlays.remove(gameOverOverlay);
+
+    lives += Tuning.reviveLives;
+    livesNotifier.value = lives;
+
+    // Everything in the air goes. The ship died inside a pattern that is still
+    // on screen, and dropping the player back into it would take the life
+    // straight back off them.
+    bullets.clear();
+    player.grantGrace(Tuning.reviveGrace);
+
+    audio.play(Sfx.shieldUp);
+    resumeEngine();
   }
 
   /// Moves on to the next level, or back out when the last one is done.

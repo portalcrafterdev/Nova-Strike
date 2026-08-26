@@ -26,6 +26,17 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- The AdMob app this game belongs to. The ads SDK reads this while
+             the process is starting and throws if it is missing or malformed,
+             so it is not optional and it cannot be set from Dart.
+
+             This is the real app id in every build. The thing that keeps a
+             debug build from earning against the live account is the ad unit
+             ids, which lib/ads/ad_ids.dart swaps for Google's test units
+             outside release. That is what Google's own guidance asks for. -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-8244651657160773~9818123144" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

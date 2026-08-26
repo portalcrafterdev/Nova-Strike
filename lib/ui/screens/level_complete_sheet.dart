@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../ads/ads_controller.dart';
 import '../../audio/sfx.dart';
 import '../../game/nova_game.dart';
 import '../../levels/difficulty_curve.dart';
@@ -12,10 +13,34 @@ import '../widgets/space_scrim.dart';
 ///
 /// One column, result above the choices. Half of a portrait screen is not wide
 /// enough for a button to say NEXT LEVEL without eliding it.
-class LevelCompleteSheet extends StatelessWidget {
-  const LevelCompleteSheet({required this.game, super.key});
+///
+/// The interstitial goes on the way to the next level rather than on arrival
+/// here. The player has just earned something and the first thing they should
+/// see is what they earned. [ads] is optional so the sheet can be built
+/// without an ad controller.
+class LevelCompleteSheet extends StatefulWidget {
+  const LevelCompleteSheet({required this.game, this.ads, super.key});
 
   final NovaGame game;
+  final AdsController? ads;
+
+  @override
+  State<LevelCompleteSheet> createState() => _LevelCompleteSheetState();
+}
+
+class _LevelCompleteSheetState extends State<LevelCompleteSheet> {
+  NovaGame get game => widget.game;
+
+  Future<void> _next() async {
+    game.audio.play(Sfx.buttonTap);
+    // Awaited. The ad has to be finished with before the next level starts
+    // underneath it, and this is the one moment in the game where waiting is
+    // the point rather than a cost.
+    await widget.ads?.onLevelCleared(game.levelNumber);
+    if (mounted) {
+      game.nextLevel();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -76,10 +101,7 @@ class LevelCompleteSheet extends StatelessWidget {
                       label: 'NEXT LEVEL',
                       primary: true,
                       icon: Icons.arrow_forward,
-                      onPressed: () {
-                        game.audio.play(Sfx.buttonTap);
-                        game.nextLevel();
-                      },
+                      onPressed: _next,
                     ),
                     const SizedBox(height: 10),
                   ],

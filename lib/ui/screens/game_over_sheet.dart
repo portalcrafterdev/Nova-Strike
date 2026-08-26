@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../ads/ads_controller.dart';
 import '../../audio/sfx.dart';
 import '../../game/nova_game.dart';
 import '../../theme/palette.dart';
@@ -12,13 +13,54 @@ import '../widgets/space_scrim.dart';
 /// Retry restarts the same level immediately. There is no ad gate and no wait,
 /// because friction here is what makes players quit. One column, result above
 /// the choices, so a button is never too narrow to say what it does.
-class GameOverSheet extends StatelessWidget {
-  const GameOverSheet({required this.game, super.key});
+///
+/// The one ad on this screen is the extra life, and it is an offer rather than
+/// a toll. Watching it hands back a life and drops the player back into the
+/// fight they just lost, keeping their score and their place in the level.
+/// Ignoring it costs nothing, because RETRY sits right underneath it and is
+/// still instant and still free.
+class GameOverSheet extends StatefulWidget {
+  const GameOverSheet({required this.game, this.ads, super.key});
 
   final NovaGame game;
+  final AdsController? ads;
+
+  @override
+  State<GameOverSheet> createState() => _GameOverSheetState();
+}
+
+class _GameOverSheetState extends State<GameOverSheet> {
+  bool _busy = false;
+
+  NovaGame get game => widget.game;
+
+  Future<void> _watchForLife() async {
+    final ads = widget.ads;
+    if (ads == null || _busy || !game.canRevive) {
+      return;
+    }
+    game.audio.play(Sfx.buttonTap);
+    setState(() => _busy = true);
+    final earned = await ads.showRewarded();
+    if (!mounted) {
+      return;
+    }
+    setState(() => _busy = false);
+    if (earned) {
+      // Only on a watched ad. Skipping out early pays nothing, which is what
+      // the store means by a reward.
+      game.revive();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final ads = widget.ads;
+    // Offered only when there is an ad loaded and the run has not already
+    // spent its revive. A button promising a life that then does nothing is
+    // worse than no button at all.
+    final canWatch = ads != null && ads.canOfferReward && game.canRevive;
+
     return SpaceScrim(
       child: SafeArea(
         child: Padding(
@@ -55,9 +97,27 @@ class GameOverSheet extends StatelessWidget {
                       style: AppType.bodyDim,
                     ),
                   const SizedBox(height: 28),
+                  if (canWatch) ...[
+                    NovaButton(
+                      label: _busy ? 'LOADING' : 'EXTRA LIFE',
+                      primary: true,
+                      icon: Icons.favorite,
+                      enabled: !_busy,
+                      onPressed: _watchForLife,
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'WATCH AN AD TO CARRY ON WHERE YOU FELL',
+                      textAlign: TextAlign.center,
+                      style: AppType.bodyDim,
+                    ),
+                    const SizedBox(height: 14),
+                  ],
                   NovaButton(
                     label: 'RETRY',
-                    primary: true,
+                    // The primary action, unless the extra life is on offer.
+                    // Two glowing buttons on one sheet is no emphasis at all.
+                    primary: !canWatch,
                     icon: Icons.refresh,
                     onPressed: () {
                       game.audio.play(Sfx.buttonTap);

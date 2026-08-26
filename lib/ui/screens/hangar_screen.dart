@@ -5,6 +5,7 @@ import '../../audio/sfx.dart';
 import '../../state/ship_catalog.dart';
 import '../../theme/palette.dart';
 import '../../theme/typography.dart';
+import '../widgets/ad_banner.dart';
 import '../widgets/nova_button.dart';
 import '../widgets/star_field.dart';
 
@@ -25,6 +26,8 @@ class HangarScreen extends StatelessWidget {
     return StarField(
       child: Scaffold(
         backgroundColor: Colors.transparent,
+        // Menu screens only. Never over the play area.
+        bottomNavigationBar: AdBanner(ads: scope.ads),
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,

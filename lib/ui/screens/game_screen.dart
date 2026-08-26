@@ -82,9 +82,9 @@ class _GameScreenState extends State<GameScreen> {
             NovaGame.hudOverlay: (context, game) => Hud(game: game),
             NovaGame.pauseOverlay: (context, game) => PauseOverlay(game: game),
             NovaGame.gameOverOverlay: (context, game) =>
-                GameOverSheet(game: game),
+                GameOverSheet(game: game, ads: AppScope.of(context).ads),
             NovaGame.levelCompleteOverlay: (context, game) =>
-                LevelCompleteSheet(game: game),
+                LevelCompleteSheet(game: game, ads: AppScope.of(context).ads),
           },
         ),
       ),
