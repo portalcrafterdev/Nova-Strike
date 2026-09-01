@@ -173,6 +173,9 @@ class PlayerProgress extends ChangeNotifier {
     _highContrast = _save.loadHighContrast();
     _largeBullets = _save.loadLargeBullets();
     _upgradeTiers = _save.loadUpgrades();
+    for (final key in SaveService.lifetimeKeys) {
+      _lifetime[key] = _save.loadLifetime(key);
+    }
     _loadShips();
     _endlessBest = _save.loadEndlessBest();
     notifyListeners();
@@ -281,6 +284,7 @@ class PlayerProgress extends ChangeNotifier {
     _ship = ShipCatalog.starter;
     _owned = {ShipCatalog.starter};
     _endlessBest = 0;
+    _lifetime.clear();
     await _save.clearProgress();
     notifyListeners();
   }
@@ -296,6 +300,81 @@ class PlayerProgress extends ChangeNotifier {
   int get endlessBest => _endlessBest;
 
   bool owns(ShipId id) => _owned.contains(id);
+
+  // Lifetime counters. Read by the achievements and by nothing else.
+
+  final Map<String, int> _lifetime = <String, int>{};
+
+  /// One running total, by its key on [SaveService].
+  int lifetime(String key) => _lifetime[key] ?? 0;
+
+  /// Stars earned across all three settings.
+  ///
+  /// [totalStars] is the current setting only, which is what the menu wants.
+  /// An achievement should not un-earn itself because the player switched to
+  /// hard and started again.
+  int get starsEverywhere {
+    var total = 0;
+    for (final data in _starsAt.values) {
+      for (var i = 0; i < data.length; i++) {
+        total += int.tryParse(data[i]) ?? 0;
+      }
+    }
+    return total;
+  }
+
+  /// The best level reached on any setting.
+  int get furthestLevel =>
+      _highest.values.reduce((a, b) => a > b ? a : b);
+
+  /// How many upgrades are sitting at the top tier.
+  int get maxedUpgrades => upgrades
+      .where((def) => tierOf(def.id) >= Tuning.upgradeMaxTier)
+      .length;
+
+  /// How many hulls the player owns.
+  int get shipsOwned => _owned.length;
+
+  /// Folds one finished level into the running totals.
+  ///
+  /// Called once when a level ends, win or lose, rather than on every kill.
+  /// Thirty achievements are not worth thirty disk writes a second, and the
+  /// counters only need to be right by the time a sheet is on screen.
+  Future<void> recordRun({
+    required int enemies,
+    required int bosses,
+    required int powerUps,
+    required int coinsEarned,
+    required int livesLost,
+    required bool cleared,
+    required bool bossLevel,
+  }) async {
+    _bump(SaveService.keyLifetimeEnemies, enemies);
+    _bump(SaveService.keyLifetimeBosses, bosses);
+    _bump(SaveService.keyLifetimePowerUps, powerUps);
+    _bump(SaveService.keyLifetimeCoins, coinsEarned);
+    _bump(SaveService.keyLifetimeDeaths, livesLost);
+    if (cleared) {
+      _bump(SaveService.keyLevelsCleared, 1);
+      if (livesLost == 0) {
+        _bump(SaveService.keyPerfectLevels, 1);
+        if (bossLevel) {
+          _bump(SaveService.keyPerfectBosses, 1);
+        }
+      }
+    }
+    for (final key in SaveService.lifetimeKeys) {
+      await _save.saveLifetime(key, _lifetime[key] ?? 0);
+    }
+    notifyListeners();
+  }
+
+  void _bump(String key, int by) {
+    if (by <= 0) {
+      return;
+    }
+    _lifetime[key] = (_lifetime[key] ?? 0) + by;
+  }
 
   void _loadShips() {
     _owned = {ShipCatalog.starter};

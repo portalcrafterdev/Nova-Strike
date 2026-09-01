@@ -341,6 +341,7 @@ class Boss extends Component
     game.slowMotion();
     game.shake.shake(Metrics.shakeAmplitudeLarge, Metrics.shakeDurationLarge);
     game.vibrate(HapticsStrength.heavy);
+    game.bossesKilled++;
     game.addScore(spec.maxHp.round());
     for (var i = 0; i < 4; i++) {
       game.world.add(

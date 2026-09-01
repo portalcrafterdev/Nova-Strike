@@ -13,6 +13,7 @@ import '../widgets/ship_mark.dart';
 import '../widgets/star_field.dart';
 import 'game_screen.dart';
 import 'hangar_screen.dart';
+import 'achievements_screen.dart';
 import 'leaderboard_screen.dart';
 import 'level_map.dart';
 import 'settings_screen.dart';
@@ -89,6 +90,12 @@ class MainMenu extends StatelessWidget {
                               } else {
                                 scope.games.signIn();
                               }
+                            },
+                            onOpenBadges: () {
+                              scope.audio.play(Sfx.buttonTap);
+                              Navigator.of(
+                                context,
+                              ).pushNamed(AchievementsScreen.route);
                             },
                             onOpenRanks: () {
                               scope.audio.play(Sfx.buttonTap);

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flame/components.dart' hide Vector3;
@@ -187,6 +188,14 @@ class NovaGame extends FlameGame<NovaWorld> with HasCollisionDetection {
 
   int lives = Tuning.playerLives;
   int score = 0;
+  /// Counted for the run and folded into the lifetime totals when the level
+  /// ends. Kept here rather than written straight to disk, because thirty
+  /// achievements are not worth a disk write per kill.
+  int enemiesKilled = 0;
+  int bossesKilled = 0;
+  int powerUpsTaken = 0;
+  int livesLostThisLevel = 0;
+
   int coinsCollected = 0;
   int coinsSpawned = 0;
   bool lostALife = false;
@@ -259,6 +268,10 @@ class NovaGame extends FlameGame<NovaWorld> with HasCollisionDetection {
     lives = carryOver ? lives : progress.lives;
     score = 0;
     coinsCollected = 0;
+    enemiesKilled = 0;
+    bossesKilled = 0;
+    powerUpsTaken = 0;
+    livesLostThisLevel = 0;
     coinsSpawned = 0;
     lostALife = false;
     status = GameStatus.playing;
@@ -401,6 +414,7 @@ class NovaGame extends FlameGame<NovaWorld> with HasCollisionDetection {
     }
     lives--;
     lostALife = true;
+    livesLostThisLevel++;
     livesNotifier.value = lives;
     audio.play(lives > 0 ? Sfx.playerHit : Sfx.playerExplode);
     shake.shake(Metrics.shakeAmplitudeLarge, Metrics.shakeDurationLarge);
@@ -433,6 +447,7 @@ class NovaGame extends FlameGame<NovaWorld> with HasCollisionDetection {
       stars: earnedStars,
       coinsEarned: earned,
     );
+    await _bankRun(cleared: true, coinsEarned: earned);
     overlays.add(levelCompleteOverlay);
     pauseEngine();
   }
@@ -451,8 +466,37 @@ class NovaGame extends FlameGame<NovaWorld> with HasCollisionDetection {
       progress.recordEndless(total);
       progress.addCoins(coinsCollected);
     }
+    // Banked on a loss as well as a win. The enemies destroyed on the way to
+    // losing were still destroyed, and an achievement that only counted the
+    // levels a player won would stall exactly where they need encouragement.
+    unawaited(_bankRun(cleared: false, coinsEarned: 0));
     overlays.add(gameOverOverlay);
     pauseEngine();
+  }
+
+  /// Folds this level's counters into the lifetime totals, then clears them so
+  /// a retry cannot bank the same kills twice.
+  Future<void> _bankRun({
+    required bool cleared,
+    required int coinsEarned,
+  }) async {
+    final enemies = enemiesKilled;
+    final bosses = bossesKilled;
+    final gems = powerUpsTaken;
+    final lost = livesLostThisLevel;
+    enemiesKilled = 0;
+    bossesKilled = 0;
+    powerUpsTaken = 0;
+    livesLostThisLevel = 0;
+    await progress.recordRun(
+      enemies: enemies,
+      bosses: bosses,
+      powerUps: gems,
+      coinsEarned: coinsEarned,
+      livesLost: lost,
+      cleared: cleared,
+      bossLevel: spec.kind == LevelKind.boss,
+    );
   }
 
   /// The score to show when a run ends: the level in a campaign run, the whole

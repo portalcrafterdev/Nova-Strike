@@ -20,6 +20,12 @@ abstract class GameServicesBackend {
 
   Future<void> unlock({required String achievementId});
 
+  /// Reports absolute progress on a counting badge.
+  ///
+  /// Absolute rather than a delta, because the game counts on disk and would
+  /// otherwise double report every badge each time the player signs in.
+  Future<void> setSteps({required String achievementId, required int steps});
+
   /// Opens the store's own leaderboard sheet, on the given board when named.
   Future<void> showLeaderboards({String? leaderboardId});
 
@@ -66,6 +72,21 @@ class StoreGameServices implements GameServicesBackend {
       achievement: Achievement(
         androidID: achievementId,
         iOSID: achievementId,
+      ),
+    );
+  }
+
+  @override
+  Future<void> setSteps({
+    required String achievementId,
+    required int steps,
+  }) async {
+    await Achievements.setSteps(
+      achievement: Achievement(
+        androidID: achievementId,
+        iOSID: achievementId,
+        steps: steps,
+        percentComplete: steps.toDouble(),
       ),
     );
   }

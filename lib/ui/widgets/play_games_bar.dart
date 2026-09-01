@@ -16,6 +16,7 @@ class PlayGamesBar extends StatelessWidget {
     required this.games,
     required this.onSignIn,
     required this.onOpenRanks,
+    required this.onOpenBadges,
     super.key,
   });
 
@@ -23,12 +24,25 @@ class PlayGamesBar extends StatelessWidget {
   final VoidCallback onSignIn;
   final VoidCallback onOpenRanks;
 
+  /// Opens the achievements list, which is kept on the phone.
+  final VoidCallback onOpenBadges;
+
   @override
   Widget build(BuildContext context) {
-    // Nothing to sign into off a phone, so the row disappears rather than
-    // sitting there dead.
+    // The badges are kept on the phone, so that button stands on its own even
+    // where there is no store to sign into. Only the sign in pill and the
+    // rankings need one.
+    final badges = NovaIconButton(
+      icon: Icons.emoji_events,
+      tooltip: 'Achievements',
+      onPressed: onOpenBadges,
+    );
+
     if (!games.isSupported) {
-      return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Align(alignment: Alignment.centerRight, child: badges),
+      );
     }
 
     return Padding(
@@ -36,6 +50,8 @@ class PlayGamesBar extends StatelessWidget {
       child: Row(
         children: [
           Expanded(child: _SignInPill(games: games, onSignIn: onSignIn)),
+          const SizedBox(width: 8),
+          badges,
           const SizedBox(width: 8),
           NovaIconButton(
             icon: Icons.leaderboard,

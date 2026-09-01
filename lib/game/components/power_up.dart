@@ -124,6 +124,7 @@ class PowerUp extends Component with Renderable, HasGameReference<NovaGame> {
       final reach = Tuning.coinPickupRadius + Metrics.powerUpRadius;
       if (position.distanceToSquared(player.position) < reach * reach) {
         player.applyPowerUp(type);
+        game.powerUpsTaken++;
         game.audio.play(Sfx.powerUpPickup);
         game.vibrate(HapticsStrength.light);
         removeFromParent();

@@ -34,6 +34,34 @@ class SaveService {
   static const String keyEndlessBest = 'endlessBest';
   static const String keyDifficulty = 'difficulty';
 
+  /// Running totals that only ever go up, kept for the achievements.
+  ///
+  /// Separate from the progress numbers next to them because these survive
+  /// everything. Spending coins does not reduce how many were earned, and
+  /// replaying a level does not un-destroy the ships destroyed the first time.
+  /// One key each rather than one blob, so a key added later reads as zero
+  /// instead of failing to parse a map written by an older build.
+  static const String keyLifetimeEnemies = 'lifetimeEnemies';
+  static const String keyLifetimeBosses = 'lifetimeBosses';
+  static const String keyLifetimeCoins = 'lifetimeCoins';
+  static const String keyLifetimePowerUps = 'lifetimePowerUps';
+  static const String keyLifetimeDeaths = 'lifetimeDeaths';
+  static const String keyLevelsCleared = 'levelsCleared';
+  static const String keyPerfectLevels = 'perfectLevels';
+  static const String keyPerfectBosses = 'perfectBosses';
+
+  /// Every lifetime counter, so they can be read, bumped and cleared as a set.
+  static const List<String> lifetimeKeys = [
+    keyLifetimeEnemies,
+    keyLifetimeBosses,
+    keyLifetimeCoins,
+    keyLifetimePowerUps,
+    keyLifetimeDeaths,
+    keyLevelsCleared,
+    keyPerfectLevels,
+    keyPerfectBosses,
+  ];
+
   SharedPreferences? _prefs;
 
   /// True when the save on disk came from a build newer than this one.
@@ -188,6 +216,13 @@ class SaveService {
 
   Future<void> saveDifficulty(Difficulty difficulty) async {
     await _prefs?.setString(keyDifficulty, difficulty.name);
+  }
+
+  /// Reads one lifetime counter. Missing means nobody has earned any yet.
+  int loadLifetime(String key) => _prefs?.getInt(key) ?? 0;
+
+  Future<void> saveLifetime(String key, int value) async {
+    await _prefs?.setInt(key, value);
   }
 
   int loadCoins() => _prefs?.getInt(keyCoins) ?? 0;

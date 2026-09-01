@@ -9,11 +9,13 @@ import 'package:novastrike/levels/difficulty_curve.dart';
 import 'package:novastrike/levels/level_generator.dart';
 import 'package:novastrike/levels/level_spec.dart';
 import 'package:novastrike/services/game_services_controller.dart';
+import 'package:novastrike/state/achievement_catalog.dart';
 import 'package:novastrike/state/player_progress.dart';
 import 'package:novastrike/game/nova_game.dart';
 import 'package:novastrike/state/save_service.dart';
 import 'package:novastrike/ui/overlays/pause_overlay.dart';
 import 'package:novastrike/state/ship_catalog.dart';
+import 'package:novastrike/ui/screens/achievements_screen.dart';
 import 'package:novastrike/ui/screens/game_over_sheet.dart';
 import 'package:novastrike/ui/screens/hangar_screen.dart';
 import 'package:novastrike/ui/screens/leaderboard_screen.dart';
@@ -145,6 +147,48 @@ void main() {
     await tester.tap(find.text(DifficultyTuning.labelOf(Difficulty.easy)));
     await tester.pump();
     expect(scope.progress.difficulty, Difficulty.easy);
+  });
+
+  testWidgets('the achievements screen lists every badge', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+
+    // Enough progress that some are earned and some are not, so both states
+    // are actually built rather than only the locked one.
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      SaveService.keyHighestLevel: 40,
+      SaveService.keyLifetimeEnemies: 250,
+      SaveService.keyPerfectLevels: 3,
+    });
+    final scope = await scopeFor(const AchievementsScreen());
+    await tester.pumpWidget(scope);
+    await tester.pump();
+
+    expect(tester.takeException(), isNull, reason: 'the screen does not lay out');
+    expect(
+      find.textContaining('OF ${AchievementCatalog.all.length} EARNED'),
+      findsOneWidget,
+    );
+
+    // The list scrolls, so walk it and check every badge shows up. A hidden
+    // one that is not earned shows as HIDDEN on purpose.
+    final scrollable = find.byType(Scrollable).first;
+    for (final badge in AchievementCatalog.all) {
+      if (badge.hidden && !badge.earnedBy(scope.progress)) {
+        continue;
+      }
+      await tester.scrollUntilVisible(
+        find.text(badge.name.toUpperCase()),
+        150,
+        scrollable: scrollable,
+      );
+      expect(
+        find.text(badge.name.toUpperCase()),
+        findsOneWidget,
+        reason: '${badge.id} is missing from the list',
+      );
+    }
   });
 
   testWidgets('the settings screen has one slider per channel', (tester) async {

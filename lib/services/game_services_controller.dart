@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-import '../levels/difficulty_curve.dart';
 import '../levels/level_spec.dart';
+import '../state/achievement_catalog.dart';
 import '../state/player_progress.dart';
 import 'game_services_backend.dart';
 import 'play_ids.dart';
@@ -43,9 +43,10 @@ enum GameServicesStatus {
 class GameServicesController extends ChangeNotifier {
   GameServicesController({
     this.backend = const StoreGameServices(),
-    this.ids = PlayIds.live,
+    PlayIds? ids,
     TargetPlatform? platform,
-  }) : _platform = platform ?? defaultTargetPlatform {
+  }) : ids = ids ?? PlayIds.live,
+       _platform = platform ?? defaultTargetPlatform {
     // Settled here rather than left until [init] finishes, because the answer
     // needs nothing outside this process and a screen built on the first frame
     // would otherwise be told there is no store on the phone at all.
@@ -65,12 +66,6 @@ class GameServicesController extends ChangeNotifier {
   /// player may be creating an account or choosing between two of them.
   static const Duration signInTimeout = Duration(seconds: 90);
 
-  /// Levels cleared for the long haul badge.
-  static const int centurionLevel = 100;
-
-  /// Stars collected for the completionist badge.
-  static const int starCollectorStars = 100;
-
   final GameServicesBackend backend;
 
   /// The board and badge ids this controller reports to.
@@ -87,6 +82,7 @@ class GameServicesController extends ChangeNotifier {
   int _sentLevel = 0;
   int _sentStars = 0;
   final Set<String> _sentBadges = <String>{};
+  final Map<String, int> _sentSteps = <String, int>{};
 
   GameServicesStatus get status => _status;
   String? get playerName => _playerName;
@@ -219,8 +215,36 @@ class GameServicesController extends ChangeNotifier {
       await _submit(ids.totalStars, stars);
     }
 
-    for (final badge in earnedBadges(progress)) {
-      await _unlock(badge);
+    await _reportBadges(progress);
+  }
+
+  /// Pushes every badge in the catalogue that has moved.
+  ///
+  /// Counting badges report an absolute step count rather than a delta,
+  /// because the count lives on disk and a delta would be sent again every
+  /// time the player signed in.
+  Future<void> _reportBadges(PlayerProgress progress) async {
+    for (final badge in AchievementCatalog.all) {
+      final id = ids.achievementIdFor(badge.id, android: isAndroid);
+      if (!PlayIds.ready(id)) {
+        continue;
+      }
+      if (badge.isIncremental) {
+        final steps = badge.progressIn(progress);
+        if (steps <= (_sentSteps[badge.id] ?? 0)) {
+          continue;
+        }
+        _sentSteps[badge.id] = steps;
+        await _guard(
+          () => backend.setSteps(achievementId: id, steps: steps),
+          fallback: null,
+        );
+      } else if (badge.earnedBy(progress)) {
+        if (!_sentBadges.add(id)) {
+          continue;
+        }
+        await _guard(() => backend.unlock(achievementId: id), fallback: null);
+      }
     }
   }
 
@@ -229,24 +253,8 @@ class GameServicesController extends ChangeNotifier {
   /// Worked out from the save rather than from the moment a level ends, so a
   /// player who was signed out when they earned one still gets it the first
   /// time they sign in.
-  Iterable<AchievementId> earnedBadges(PlayerProgress progress) sync* {
-    final cleared = progress.highestLevelIn(Difficulty.medium) - 1;
-    if (cleared >= 1) {
-      yield ids.firstFlight;
-    }
-    if (cleared >= Tuning.levelsPerChapter) {
-      yield ids.bossSlayer;
-    }
-    if (cleared >= centurionLevel) {
-      yield ids.centurion;
-    }
-    if (progress.starsData.contains('${Tuning.starsPerLevel}')) {
-      yield ids.perfectRun;
-    }
-    if (progress.totalStars >= starCollectorStars) {
-      yield ids.starCollector;
-    }
-  }
+  List<AchievementDef> earnedBadges(PlayerProgress progress) =>
+      AchievementCatalog.earnedIn(progress);
 
   String _idOfBoard(LeaderboardId board) =>
       isAndroid ? board.android : board.ios;
@@ -259,14 +267,6 @@ class GameServicesController extends ChangeNotifier {
       ),
       fallback: null,
     );
-  }
-
-  Future<void> _unlock(AchievementId badge) async {
-    final id = isAndroid ? badge.android : badge.ios;
-    if (!_sentBadges.add(id)) {
-      return;
-    }
-    await _guard(() => backend.unlock(achievementId: id), fallback: null);
   }
 
   Future<void> _afterSignIn() async {

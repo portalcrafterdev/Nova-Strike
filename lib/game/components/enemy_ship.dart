@@ -321,6 +321,7 @@ class EnemyShip extends Component
       if (stats.baseHp >= Tuning.hitStopHpThreshold) {
         game.hitStop(Metrics.hitStopHeavy);
       }
+      game.enemiesKilled++;
       game.addScore(stats.score);
       game.dropLoot(position, guaranteedPowerUp: dropsPowerUp);
       if (stats.splitsInto > 0) {

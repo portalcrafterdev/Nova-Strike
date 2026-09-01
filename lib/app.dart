@@ -8,6 +8,7 @@ import 'state/save_service.dart';
 import 'theme/palette.dart';
 import 'theme/typography.dart';
 import 'ui/screens/boot_screen.dart';
+import 'ui/screens/achievements_screen.dart';
 import 'ui/screens/leaderboard_screen.dart';
 import 'ui/screens/level_map.dart';
 import 'ui/screens/main_menu.dart';
@@ -140,6 +141,7 @@ class _NovaStrikeAppState extends State<NovaStrikeApp>
           UpgradeScreen.route: (_) => const UpgradeScreen(),
           HangarScreen.route: (_) => const HangarScreen(),
           LeaderboardScreen.route: (_) => const LeaderboardScreen(),
+          AchievementsScreen.route: (_) => const AchievementsScreen(),
         },
       ),
     );

@@ -6,19 +6,25 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:novastrike/services/game_services_backend.dart';
 import 'package:novastrike/services/game_services_controller.dart';
 import 'package:novastrike/services/play_ids.dart';
+import 'package:novastrike/state/achievement_catalog.dart';
 import 'package:novastrike/state/player_progress.dart';
 import 'package:novastrike/state/save_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// A filled in id table, standing in for one pasted out of a console.
-const PlayIds _filled = PlayIds(
-  highestLevel: LeaderboardId(android: 'a_level', ios: 'i_level'),
-  totalStars: LeaderboardId(android: 'a_stars', ios: 'i_stars'),
-  firstFlight: AchievementId(android: 'a_first', ios: 'i_first'),
-  bossSlayer: AchievementId(android: 'a_boss', ios: 'i_boss'),
-  perfectRun: AchievementId(android: 'a_perfect', ios: 'i_perfect'),
-  centurion: AchievementId(android: 'a_100', ios: 'i_100'),
-  starCollector: AchievementId(android: 'a_starcol', ios: 'i_starcol'),
+///
+/// Built from the catalogue so it cannot drift out of step with it: a badge
+/// added there is filled in here without another edit.
+final PlayIds _filled = PlayIds(
+  highestLevel: const LeaderboardId(android: 'a_level', ios: 'i_level'),
+  totalStars: const LeaderboardId(android: 'a_stars', ios: 'i_stars'),
+  achievementIds: {
+    for (final badge in AchievementCatalog.all)
+      badge.id: AchievementId(
+        android: 'a_${badge.id}',
+        ios: 'i_${badge.id}',
+      ),
+  },
 );
 
 /// A store that records what it was asked to do and answers however the test
@@ -32,6 +38,7 @@ class FakeStore implements GameServicesBackend {
   final List<String> calls = <String>[];
   final Map<String, int> scores = <String, int>{};
   final List<String> unlocked = <String>[];
+  final Map<String, int> steps = <String, int>{};
 
   Future<T> _answer<T>(String call, T value) async {
     calls.add(call);
@@ -75,6 +82,15 @@ class FakeStore implements GameServicesBackend {
   }
 
   @override
+  Future<void> setSteps({
+    required String achievementId,
+    required int steps,
+  }) async {
+    await _answer('setSteps:$achievementId', null);
+    this.steps[achievementId] = steps;
+  }
+
+  @override
   Future<void> showLeaderboards({String? leaderboardId}) =>
       _answer('showLeaderboards:${leaderboardId ?? 'all'}', null);
 
@@ -90,10 +106,14 @@ Future<PlayerProgress> _progress() async {
 
 GameServicesController _controller(
   FakeStore store, {
-  PlayIds ids = _filled,
+  PlayIds? ids,
   TargetPlatform platform = TargetPlatform.android,
 }) {
-  return GameServicesController(backend: store, ids: ids, platform: platform);
+  return GameServicesController(
+    backend: store,
+    ids: ids ?? _filled,
+    platform: platform,
+  );
 }
 
 void main() {
@@ -270,12 +290,12 @@ void main() {
     final games = _controller(store)..watch(progress);
     await games.signIn();
 
-    expect(store.unlocked, contains('a_first'));
-    expect(store.unlocked, contains('a_boss'));
-    expect(store.unlocked, contains('a_perfect'));
+    expect(store.unlocked, contains('a_first_flight'));
+    expect(store.unlocked, contains('a_chapter_closed'));
+    expect(store.unlocked, contains('a_three_star_pilot'));
     // A hundred levels and a hundred stars are still a long way off.
-    expect(store.unlocked, isNot(contains('a_100')));
-    expect(store.unlocked, isNot(contains('a_starcol')));
+    expect(store.unlocked, isNot(contains('a_centurion')));
+    expect(store.unlocked, isNot(contains('a_star_hoarder')));
   });
 
   test('a badge is only ever unlocked once', () async {
@@ -290,7 +310,7 @@ void main() {
     await games.report();
 
     expect(
-      store.unlocked.where((id) => id == 'a_first').length,
+      store.unlocked.where((id) => id == 'a_first_flight').length,
       1,
       reason: 'the same badge is pushed on every save',
     );
@@ -307,7 +327,7 @@ void main() {
 
     expect(games.serviceName, 'Game Center');
     expect(store.scores.keys, contains('i_level'));
-    expect(store.unlocked, contains('i_first'));
+    expect(store.unlocked, contains('i_first_flight'));
   });
 
   test('the sheets only open when there is something behind them', () async {
