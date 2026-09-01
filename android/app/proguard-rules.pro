@@ -1,102 +1,218 @@
-# Nova Strike - R8 rules
+# Nova Strike - R8 / ProGuard rules
 #
 # Flutter's Gradle plugin picks this file up automatically when it exists
-# (FlutterPlugin.kt adds "${project.projectDir}/proguard-rules.pro" to the
-# release build type), so nothing in build.gradle.kts has to reference it.
+# (FlutterPlugin.kt appends "${project.projectDir}/proguard-rules.pro" to the
+# release build type), so build.gradle.kts does not reference it.
 #
-# Three rule sets are already applied before this one:
+# Applied before this file, in order:
+#   1. proguard-android-optimize.txt   AGP defaults
+#   2. flutter_proguard_rules.pro      keeps FlutterPlugin implementations
+#   3. each dependency's own consumer rules, unpacked from its AAR
 #
-#   1. proguard-android-optimize.txt   AGP's defaults, added by Flutter
-#   2. flutter_proguard_rules.pro      keeps every FlutterPlugin implementation
-#                                      and silences io.flutter.plugin / android.*
-#   3. every dependency's own consumer rules, pulled out of its AAR
+# Many rules below overlap that third set. They are written out per package
+# anyway so the protection is visible here rather than depending on what a
+# dependency happens to ship, and so a library bump that drops a consumer rule
+# cannot quietly break a release build.
 #
-# That third set is why this file is short. The libraries this game uses ship
-# the rules they need, and duplicating them here would only add noise. What is
-# already covered, verified by reading the merged configuration.txt that R8
-# writes to build/app/outputs/mapping/release/:
-#
-#   google_mobile_ads / play-services-ads
-#       keeps ClientApi and every MediationAdapter, CustomEvent and
-#       MediationAdNetworkAdapter implementation, so mediation adapters loaded
-#       by reflection survive.
-#   games_services
-#       keeps the fields of AchievementItemData, LeaderboardScoreData,
-#       PlayerData and SavedGame. This one matters more than it looks: the
-#       plugin hands those data classes to Gson().toJson(), and the Dart side
-#       reads the result back by key name (json["playerID"], json["displayName"]
-#       and so on). Gson takes its keys from the field names, so renamed fields
-#       would produce {"a":..,"b":..} and every value would decode to null, in
-#       release only, with no build warning. The plugin author already guards
-#       against it; the note is here so nobody "cleans up" that rule later.
-#   kotlin coroutines, gson, room, work-runtime, datastore, lifecycle,
-#   androidx.*
-#       all ship their own.
-#   audioplayers / flame_audio
-#       talks to MediaPlayer and AudioTrack directly, no reflection, nothing
-#       needed.
-#   shared_preferences
-#       uses SharedPreferences and DataStore directly, nothing needed.
-#
-# A blanket "-keep class ** { *; }" would make all of that moot by switching
-# shrinking off, which is the opposite of why minification is on. Rules go here
-# only when something is genuinely reached by reflection, JNI, or a name.
+# What is deliberately NOT here: "-keep class ** { *; }". That switches
+# shrinking off across the board and hands back everything minification buys.
+# Every rule below is scoped to a package or to a reflective surface.
 
-# ---------------------------------------------------------------------------
-# Readable crash reports
-# ---------------------------------------------------------------------------
-# Nothing in the merged configuration asks for these, so add them here. Without
-# SourceFile and LineNumberTable, a Play Console stack trace has no line numbers
-# to restore, and uploading mapping.txt cannot invent them. Renaming every
-# source file to the single literal "SourceFile" keeps the original file names
-# out of the shipped binary while leaving mapping.txt able to put them back.
+# ===========================================================================
+# Global attributes
+# ===========================================================================
+# SourceFile and LineNumberTable make Play Console crash reports resolvable
+# against mapping.txt. Without them a stack trace has no line numbers, and
+# uploading mapping.txt cannot invent what was stripped. Renaming every source
+# file to the literal "SourceFile" keeps real file names out of the binary.
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile
 
-# ---------------------------------------------------------------------------
-# Room, reached through WorkManager, reached through the ads SDK
-# ---------------------------------------------------------------------------
-# Not obvious from pubspec.yaml: google_mobile_ads pulls in
-# play-services-ads-api, which pulls androidx.work:work-runtime, which is built
-# on Room. Room does not construct its database directly. It builds the class
-# name and loads it, roughly:
+# Reflection, generics and annotation processing all read these back at runtime.
+-keepattributes Signature
+-keepattributes Exceptions
+-keepattributes InnerClasses,EnclosingMethod
+-keepattributes *Annotation*
+-keepattributes RuntimeVisibleAnnotations,RuntimeVisibleParameterAnnotations
+-keepattributes AnnotationDefault
+
+# ===========================================================================
+# Cross-cutting reflective surfaces
+# ===========================================================================
+# Anything explicitly annotated to survive.
+-keep @androidx.annotation.Keep class * { *; }
+-keepclassmembers class * {
+    @androidx.annotation.Keep *;
+}
+
+# JNI: a native method is resolved by name from C, so the name has to survive.
+-keepclasseswithmembernames,includedescriptorclasses class * {
+    native <methods>;
+}
+
+# Enums: values() and valueOf() are called reflectively by the framework and by
+# Kotlin's when-mapping tables.
+-keepclassmembers enum * {
+    public static **[] values();
+    public static ** valueOf(java.lang.String);
+}
+
+# Parcelable CREATOR fields are looked up by name by the platform.
+-keepclassmembers class * implements android.os.Parcelable {
+    public static final ** CREATOR;
+}
+
+# Serializable plumbing, read by name if anything ever serialises.
+-keepclassmembers class * implements java.io.Serializable {
+    static final long serialVersionUID;
+    private static final java.io.ObjectStreamField[] serialPersistentFields;
+    private void writeObject(java.io.ObjectOutputStream);
+    private void readObject(java.io.ObjectInputStream);
+    java.lang.Object writeReplace();
+    java.lang.Object readResolve();
+}
+
+# View subclasses inflated from XML by name, and their setters.
+-keepclassmembers class * extends android.view.View {
+    void set*(***);
+    *** get*();
+}
+
+# ===========================================================================
+# The game's own code
+# ===========================================================================
+# MainActivity is named as a string in AndroidManifest.xml. The rest of the
+# package is small and keeping it removes any doubt about the entry points.
+-keep class com.portalcrafter.novastrike.** { *; }
+
+# ===========================================================================
+# Flutter engine and embedding
+# ===========================================================================
+# The embedding is reached from native code and from the generated plugin
+# registrant. flutter_proguard_rules.pro already keeps FlutterPlugin
+# implementations; this widens it to the embedding and plugin surfaces.
+-keep class io.flutter.app.** { *; }
+-keep class io.flutter.embedding.** { *; }
+-keep class io.flutter.plugin.** { *; }
+-keep class io.flutter.plugins.** { *; }
+-keep class io.flutter.util.** { *; }
+-keep class io.flutter.view.** { *; }
+-keep class io.flutter.** { *; }
+-dontwarn io.flutter.embedding.**
+
+# ===========================================================================
+# google_mobile_ads / Google Mobile Ads SDK / UMP
+# ===========================================================================
+# The ads SDK resolves ClientApi and every mediation adapter by name. Its own
+# consumer rules cover this; restated so a future mediation network works
+# without a debugging session.
+-keep class com.google.android.gms.ads.** { *; }
+-keep class com.google.ads.** { *; }
+-keep class com.google.android.ump.** { *; }
+-keep class io.flutter.plugins.googlemobileads.** { *; }
+-keep class * extends com.google.android.gms.ads.mediation.MediationAdapter { *; }
+-keep class * implements com.google.android.gms.ads.mediation.MediationAdapter { *; }
+-keep class * implements com.google.android.gms.ads.mediation.customevent.CustomEvent { *; }
+-dontwarn com.google.android.gms.ads.**
+
+# ===========================================================================
+# games_services / Play Games Services
+# ===========================================================================
+# The plugin passes its model classes to Gson().toJson(), and Dart reads the
+# result back by key name (json["playerID"], json["displayName"]). Gson takes
+# those keys from the field names, so renamed fields would produce
+# {"a":..,"b":..} and every value would decode to null, in release only, with
+# no build warning. The plugin ships this rule; it is restated because the
+# failure is silent and a library bump must not be able to remove it.
+-keep class com.abedalkareem.games_services.** { *; }
+-keep class com.abedalkareem.games_services.models.** { <fields>; }
+-keep class com.google.android.gms.games.** { *; }
+-keep class com.google.android.gms.common.** { *; }
+-keep class com.google.android.gms.tasks.** { *; }
+-dontwarn com.google.android.gms.**
+
+# ===========================================================================
+# Gson
+# ===========================================================================
+-keep class com.google.gson.** { *; }
+-keep class * implements com.google.gson.TypeAdapterFactory
+-keep class * implements com.google.gson.JsonSerializer
+-keep class * implements com.google.gson.JsonDeserializer
+-keepclassmembers,allowobfuscation class * {
+    @com.google.gson.annotations.SerializedName <fields>;
+}
+# TypeToken carries its type argument in the generic signature only.
+-keep,allowobfuscation,allowshrinking class com.google.gson.reflect.TypeToken
+-keep,allowobfuscation,allowshrinking class * extends com.google.gson.reflect.TypeToken
+-dontwarn com.google.gson.**
+
+# ===========================================================================
+# androidx.work + Room + startup + datastore
+# ===========================================================================
+# Not obvious from pubspec.yaml: google_mobile_ads pulls play-services-ads-api,
+# which pulls androidx.work:work-runtime, which is built on Room.
+#
+# Room never constructs its database directly. It builds the name and loads it:
 #
 #     Class.forName("androidx.work.impl.WorkDatabase" + "_Impl")
 #          .getDeclaredConstructor().newInstance()
 #
 # Nothing in the bytecode references WorkDatabase_Impl, so R8 in full mode,
-# which is the AGP 8 default, strips it. WorkManager is then initialised by
-# androidx.startup at process start, fails, and the app dies before the first
-# frame with:
+# the AGP 8 default, removes it. androidx.startup then initialises WorkManager
+# at process start, that fails, and the app dies before the first frame with:
 #
 #     Unable to get provider androidx.startup.InitializationProvider:
 #     Failed to create an instance of androidx.work.impl.WorkDatabase
 #
-# work-runtime 2.7.0 ships Room 2.2.5, whose consumer rules predate R8 full
-# mode and do not cover this. Keeping every RoomDatabase subclass and its
-# no-argument constructor is the documented fix and costs a handful of classes.
+# work-runtime 2.7.0 ships Room 2.2.5, whose consumer rules predate full mode
+# and do not cover this. This was a real crash on every launch, not a
+# precaution.
 -keep class * extends androidx.room.RoomDatabase { <init>(); }
+-keep class androidx.room.RoomDatabase { *; }
+-keep class * extends androidx.startup.Initializer { *; }
+-keep class androidx.startup.** { *; }
+-keep class androidx.work.** { *; }
+-keep class androidx.datastore.** { *; }
 -dontwarn androidx.room.paging.**
 
-# ---------------------------------------------------------------------------
-# The game's own Android entry point
-# ---------------------------------------------------------------------------
-# MainActivity is named in AndroidManifest.xml and instantiated by the system
-# from that string. AGP normally infers this from the manifest; keeping it
-# explicitly costs one class and removes the doubt.
--keep class com.portalcrafter.novastrike.MainActivity { *; }
+# ===========================================================================
+# Kotlin and coroutines
+# ===========================================================================
+-keep class kotlin.Metadata { *; }
+-keepclassmembers class **$WhenMappings {
+    <fields>;
+}
+-keepclassmembers class kotlin.Metadata {
+    public <methods>;
+}
+-keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
+-keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
+-keepclassmembers class kotlinx.coroutines.** {
+    volatile <fields>;
+}
+-dontwarn kotlin.**
+-dontwarn kotlinx.coroutines.**
 
-# ---------------------------------------------------------------------------
+# ===========================================================================
+# audioplayers / flame_audio
+# ===========================================================================
+-keep class xyz.luan.audioplayers.** { *; }
+
+# ===========================================================================
+# shared_preferences
+# ===========================================================================
+-keep class io.flutter.plugins.sharedpreferences.** { *; }
+
+# ===========================================================================
+# webview_flutter, pulled in transitively by google_mobile_ads
+# ===========================================================================
+-keep class io.flutter.plugins.webviewflutter.** { *; }
+
+# ===========================================================================
 # Not needed today, kept as a note
-# ---------------------------------------------------------------------------
-# Deferred components / Play Feature Delivery. The Flutter embedding references
+# ===========================================================================
+# Deferred components / Play Feature Delivery. The Flutter embedding touches
 # com.google.android.play.core.* only when split install is used. This build
-# does not use it and R8 reports no missing classes, so the rule stays
-# commented out. Uncomment if a build ever warns about those classes.
+# does not, and R8 reports no missing classes, so these stay commented out.
 # -dontwarn com.google.android.play.core.**
 # -keep class io.flutter.embedding.android.FlutterPlayStoreSplitApplication { *; }
-#
-# AdMob mediation. Adding a mediation network later brings an adapter that is
-# loaded by name. The AdMob consumer rules already keep anything implementing
-# the adapter interfaces, so a new network should need nothing here, but this
-# is where it would go.
