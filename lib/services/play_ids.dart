@@ -36,24 +36,46 @@ class PlayIds {
 
   /// Ids Play Console hands back after the achievements ZIP is imported.
   ///
-  /// Keyed by the slug in [AchievementCatalog]. Empty means nothing has been
-  /// imported yet, which is not an error: the game runs, the achievements
-  /// screen works off the local save, and only the submission to Google is
-  /// held back.
-  static const Map<String, String> androidAchievements = <String, String>{};
+  /// Keyed by the slug in [AchievementCatalog]. Copied out of the games-ids
+  /// file the console generates, which also carries the project id; that one
+  /// number goes to android/app/src/main/res/values/game_services.xml because
+  /// the SDK reads it from the manifest before any Dart runs.
+  ///
+  /// A missing entry is not an error. The game runs, the achievements screen
+  /// works off the local save, and only the submission to Google is held back
+  /// for the badges that have no id.
+  static const Map<String, String> androidAchievements = <String, String>{
+    'first_flight': 'CgkI3qX-6fEdEAIQLw',
+    'chapter_closed': 'CgkI3qX-6fEdEAIQKQ',
+    'centurion': 'CgkI3qX-6fEdEAIQJQ',
+    'void_runner': 'CgkI3qX-6fEdEAIQLQ',
+    'nova_legend': 'CgkI3qX-6fEdEAIQMQ',
+    'three_star_pilot': 'CgkI3qX-6fEdEAIQKg',
+    'star_collector': 'CgkI3qX-6fEdEAIQKw',
+    'sweeper': 'CgkI3qX-6fEdEAIQLA',
+    'exterminator': 'CgkI3qX-6fEdEAIQJg',
+    'boss_hunter': 'CgkI3qX-6fEdEAIQJw',
+    'untouchable': 'CgkI3qX-6fEdEAIQLg',
+    'flawless_ten': 'CgkI3qX-6fEdEAIQMg',
+    'hard_line': 'CgkI3qX-6fEdEAIQKA',
+    'fully_loaded': 'CgkI3qX-6fEdEAIQMA',
+    'fleet_commander': 'CgkI3qX-6fEdEAIQJA',
+  };
 
   /// The ids this build ships with.
   static final PlayIds live = PlayIds(
     // Highest campaign level reached. The obvious board for a game whose whole
     // shape is a ladder of 1500 levels.
     highestLevel: const LeaderboardId(
-      android: unset,
+      name: 'Levels Cleared',
+      android: 'CgkI3qX-6fEdEAIQMw',
       ios: '$iosPrefix.leaderboard.highest_level',
     ),
     // Stars across every level, which rewards going back and flying an old
     // level properly rather than only ever pushing forward.
     totalStars: const LeaderboardId(
-      android: unset,
+      name: 'Stars Collected',
+      android: 'CgkI3qX-6fEdEAIQNA',
       ios: '$iosPrefix.leaderboard.total_stars',
     ),
     // Built from the catalogue rather than written out again, so a badge added
@@ -88,28 +110,58 @@ class PlayIds {
 
   static bool ready(String id) => id.isNotEmpty && id != unset;
 
+  /// Whether every badge has a real id on the platform being run.
+  bool achievementsConfiguredFor({required bool android}) => achievements.every(
+    (badge) => ready(android ? badge.android : badge.ios),
+  );
+
+  /// Whether every board has a real id on the platform being run.
+  bool leaderboardsConfiguredFor({required bool android}) => leaderboards.every(
+    (board) => ready(android ? board.android : board.ios),
+  );
+
+  /// Names of the boards still waiting on an id.
+  ///
+  /// Boards are created one at a time on a form, so having some and not others
+  /// is the normal middle of the job. A screen that said "leaderboards are not
+  /// set up" while one of them was live would be telling the player something
+  /// untrue.
+  List<String> unreadyBoards({required bool android}) => [
+    for (final board in leaderboards)
+      if (!ready(android ? board.android : board.ios)) board.name,
+  ];
+
+  /// How many badges are still waiting on an id.
+  int unreadyBadgeCount({required bool android}) => achievements
+      .where((badge) => !ready(android ? badge.android : badge.ios))
+      .length;
+
   /// True once every id above has been replaced on the platform being run.
   ///
   /// The two platforms are judged separately, because a game can be set up on
   /// one store months before the other and the one that is ready should work.
-  bool configuredFor({required bool android}) {
-    for (final board in leaderboards) {
-      if (!ready(android ? board.android : board.ios)) {
-        return false;
-      }
-    }
-    for (final badge in achievements) {
-      if (!ready(android ? badge.android : badge.ios)) {
-        return false;
-      }
-    }
-    return true;
-  }
+  ///
+  /// Badges and boards are judged separately too, and that matters more than
+  /// it looks. They are created in the console as two independent jobs, so the
+  /// normal state of a game being set up is one done and the other not. Judged
+  /// together, importing fifteen achievements would still submit nothing until
+  /// somebody also got round to the leaderboards.
+  bool configuredFor({required bool android}) =>
+      achievementsConfiguredFor(android: android) &&
+      leaderboardsConfiguredFor(android: android);
 }
 
 /// One leaderboard, named once per store.
 class LeaderboardId {
-  const LeaderboardId({required this.android, required this.ios});
+  const LeaderboardId({
+    required this.name,
+    required this.android,
+    required this.ios,
+  });
+
+  /// What it is called in the console, so a screen can say which board is
+  /// still missing rather than just that something is.
+  final String name;
 
   final String android;
   final String ios;

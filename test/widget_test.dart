@@ -114,7 +114,14 @@ void main() {
     expect(find.text('SIGN IN'), findsOneWidget);
     // The ids are still placeholders in this build, so the screen has to say
     // why a score would go nowhere rather than pretending it went somewhere.
-    expect(find.textContaining('no ids yet'), findsOneWidget);
+    // Both boards and all fifteen badges have real ids now, so the note that
+    // explains what is still missing must not be on screen. It reappears by
+    // itself if an id is ever removed or a badge added without one.
+    expect(
+      find.textContaining('still need ids'),
+      findsNothing,
+      reason: 'the screen claims ids are missing when they are all in',
+    );
   });
 
   testWidgets('the menu picks the setting before it offers PLAY', (

@@ -14,7 +14,13 @@
       build registered as an OAuth client, debug keystore included, or sign in
       fails on a developer's own phone while working fine from the store.
     -->
-    <string name="games_project_id" translatable="false">000000000000</string>
+    <string name="games_project_id" translatable="false">1026987889374</string>
+    <!--
+      The achievement ids the same console handed back are not repeated here.
+      Nothing on the Android side reads them: the game passes them to the
+      plugin from Dart, so they live in lib/services/play_ids.dart and only
+      there. Two copies of fifteen ids is two chances for them to drift apart.
+    -->
     <!--
       One gotcha worth knowing before the real id goes in: a string resource
       whose whole value is digits can be folded into an integer by the resource

@@ -16,8 +16,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Built from the catalogue so it cannot drift out of step with it: a badge
 /// added there is filled in here without another edit.
 final PlayIds _filled = PlayIds(
-  highestLevel: const LeaderboardId(android: 'a_level', ios: 'i_level'),
-  totalStars: const LeaderboardId(android: 'a_stars', ios: 'i_stars'),
+  highestLevel: const LeaderboardId(
+    name: 'Levels Cleared',
+    android: 'a_level',
+    ios: 'i_level',
+  ),
+  totalStars: const LeaderboardId(
+    name: 'Stars Collected',
+    android: 'a_stars',
+    ios: 'i_stars',
+  ),
   achievementIds: {
     for (final badge in AchievementCatalog.all)
       badge.id: AchievementId(
@@ -131,44 +139,139 @@ void main() {
     expect(store.calls, isEmpty, reason: 'it reached for a store that is not there');
   });
 
-  test('placeholder ids stop scores leaving the phone but not sign in',
-      () async {
-    // This is the state the game ships in until someone has been to the Play
-    // Console. Signing in needs none of these ids, so it stays on offer, but
-    // a score pushed at a board called PASTE_ID_HERE would fail once per
-    // level, quietly, forever.
+  test('a part built console reports everything that has an id', () async {
+    // Boards and badges are created in the console one at a time, so some
+    // done and some not is the normal middle of the job rather than an edge
+    // case. Anything gated on the whole table being filled would report
+    // nothing until the very last id was pasted in.
     final store = FakeStore();
     final progress = await _progress();
     final games = _controller(store, ids: PlayIds.live)..watch(progress);
-
-    expect(games.idsConfigured, isFalse);
     expect(await games.signIn(), isTrue);
-    expect(games.status, GameServicesStatus.signedIn);
 
     await progress.completeLevel(level: 1, stars: 3, coinsEarned: 0);
     await games.report();
-    expect(store.scores, isEmpty, reason: 'it submitted to a placeholder id');
-    expect(store.unlocked, isEmpty);
+
+    final levels = PlayIds.live.highestLevel.android;
+    expect(
+      store.scores.keys,
+      contains(levels),
+      reason: 'the board that has an id did not get its score',
+    );
+    expect(
+      store.scores.keys,
+      isNot(contains(PlayIds.unset)),
+      reason: 'a score went to a board called PASTE_ID_HERE',
+    );
+    expect(
+      store.unlocked,
+      isNotEmpty,
+      reason: 'the imported badges are sitting unused',
+    );
   });
 
-  test('the shipped table is not accidentally half filled', () {
-    // A table with some real ids and some placeholders would submit a few
-    // scores and silently fail the rest. Either everything is set up or
-    // nothing is.
-    final android = PlayIds.live.configuredFor(android: true);
-    final ios = PlayIds.live.configuredFor(android: false);
+  test('a board with no id is left alone', () async {
+    final store = FakeStore();
+    final progress = await _progress();
+    final noStars = PlayIds(
+      highestLevel: _filled.highestLevel,
+      totalStars: const LeaderboardId(
+        name: 'Stars Collected',
+        android: PlayIds.unset,
+        ios: PlayIds.unset,
+      ),
+      achievementIds: _filled.achievementIds,
+    );
+    final games = _controller(store, ids: noStars)..watch(progress);
+    await games.signIn();
+
+    await progress.completeLevel(level: 1, stars: 3, coinsEarned: 0);
+    await games.report();
+
+    expect(store.scores.keys, contains('a_level'));
+    expect(
+      store.scores.keys,
+      isNot(contains(PlayIds.unset)),
+      reason: 'a score was pushed at a board called PASTE_ID_HERE',
+    );
+  });
+
+  test('a score lost to a dropped connection is sent again later', () async {
+    // The marker that stops the same score being pushed twice must not move
+    // for a submission that never landed. Otherwise one failed call means the
+    // store never hears that number again, and the board sits behind until
+    // the player happens to beat it.
+    final store = FakeStore();
+    final progress = await _progress();
+    final games = _controller(store)..watch(progress);
+    // Signed in first, then the connection goes. Setting it to throw up front
+    // would only fail the sign in, and report would never run at all.
+    await games.signIn();
+    store.throws = PlatformException(code: 'network');
+
+    await progress.completeLevel(level: 1, stars: 3, coinsEarned: 0);
+    await games.report();
+    expect(store.scores, isEmpty, reason: 'the store was down');
+
+    // The connection comes back. Nothing about the save has changed, so the
+    // only reason to call again is that the first attempt was not counted.
+    store.throws = null;
+    await games.report();
+    expect(
+      store.scores['a_level'],
+      1,
+      reason: 'a score lost to one failed call is never offered again',
+    );
+    expect(store.scores['a_stars'], 3);
+  });
+
+  test('the shipped Android table is complete and has no duplicates', () {
+    // Two failures this catches, both of which look like nothing at runtime.
+    // A slug typed wrong reads as a missing id, so that one badge never
+    // unlocks for anybody while the rest work. And a copied and pasted id
+    // sends two different things to the same place, so one of them silently
+    // never gets its own entry.
+    final seen = <String, String>{};
+
     for (final board in PlayIds.live.leaderboards) {
       expect(
-        board.android == PlayIds.unset,
-        !android,
-        reason: 'one leaderboard disagrees with the rest of the Android table',
+        PlayIds.ready(board.android),
+        isTrue,
+        reason: '${board.name} has no Android id',
       );
-      expect(board.ios == PlayIds.unset, !ios);
+      expect(
+        seen.containsKey(board.android),
+        isFalse,
+        reason: '${board.name} shares an id with ${seen[board.android]}',
+      );
+      seen[board.android] = board.name;
     }
-    for (final badge in PlayIds.live.achievements) {
-      expect(badge.android == PlayIds.unset, !android);
-      expect(badge.ios == PlayIds.unset, !ios);
+
+    for (final badge in AchievementCatalog.all) {
+      final id = PlayIds.live.achievementIdFor(badge.id, android: true);
+      expect(
+        PlayIds.ready(id),
+        isTrue,
+        reason: '${badge.id} has no Android id, so it can never unlock',
+      );
+      expect(
+        seen.containsKey(id),
+        isFalse,
+        reason: '${badge.id} shares an id with ${seen[id]}',
+      );
+      seen[id] = badge.id;
     }
+
+    expect(
+      PlayIds.androidAchievements.keys.toSet(),
+      AchievementCatalog.all.map((b) => b.id).toSet(),
+      reason: 'the id table and the catalogue name different badges',
+    );
+    expect(
+      PlayIds.live.configuredFor(android: true),
+      isTrue,
+      reason: 'the Android side is not fully wired up',
+    );
   });
 
   test('signing in picks up the player name', () async {

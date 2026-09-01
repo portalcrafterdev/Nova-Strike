@@ -148,7 +148,7 @@ class _StoreSection extends StatelessWidget {
             ),
             if (!games.idsConfigured) ...[
               const SizedBox(height: 12),
-              const _SetupNote(),
+              _SetupNote(games: games),
             ],
           ],
         );
@@ -158,7 +158,7 @@ class _StoreSection extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (!games.idsConfigured) ...[
-              const _SetupNote(),
+              _SetupNote(games: games),
               const SizedBox(height: 12),
             ],
             _Note(
@@ -178,15 +178,20 @@ class _StoreSection extends StatelessWidget {
                 games.showLeaderboards(board: games.ids.highestLevel);
               },
             ),
-            const SizedBox(height: 10),
-            NovaButton(
-              label: 'STAR RANKING',
-              icon: Icons.star_outline,
-              onPressed: () {
-                audio.play(Sfx.buttonTap);
-                games.showLeaderboards(board: games.ids.totalStars);
-              },
-            ),
+            // Only offered once the board exists. Opening one by an id the
+            // console has never heard of shows the player an error sheet, and
+            // a button that reliably fails is worse than no button.
+            if (games.hasBoard(games.ids.totalStars)) ...[
+              const SizedBox(height: 10),
+              NovaButton(
+                label: 'STAR RANKING',
+                icon: Icons.star_outline,
+                onPressed: () {
+                  audio.play(Sfx.buttonTap);
+                  games.showLeaderboards(board: games.ids.totalStars);
+                },
+              ),
+            ],
             const SizedBox(height: 10),
             NovaButton(
               label: 'BADGES',
@@ -202,22 +207,35 @@ class _StoreSection extends StatelessWidget {
   }
 }
 
-/// Says what is still missing before a score can leave the phone.
+/// Names exactly what is still missing before a score can leave the phone.
 ///
 /// Shown to whoever is building the game, not really to a player: on a
 /// finished build the ids are in and this never appears. It is here rather
 /// than in a README because the state it describes is one you land in by
 /// running the game, and that is where the answer should be.
+///
+/// It names the individual board or counts the badges rather than saying
+/// "leaderboards are not set up", because they are created one at a time and
+/// the normal state of the job is some done and some not. A note claiming
+/// nothing worked while one board was live would be plainly untrue.
 class _SetupNote extends StatelessWidget {
-  const _SetupNote();
+  const _SetupNote({required this.games});
+
+  final GameServicesController games;
 
   @override
   Widget build(BuildContext context) {
-    return const _Note(
+    final boards = games.ids.unreadyBoards(android: games.isAndroid);
+    final badges = games.ids.unreadyBadgeCount(android: games.isAndroid);
+    final missing = <String>[
+      ...boards,
+      if (badges > 0) '$badges achievements',
+    ];
+    return _Note(
       icon: Icons.build_circle_outlined,
       text:
-          'Boards and badges have no ids yet, so scores stay on this phone. '
-          'Create them in the console and paste the ids into '
+          '${missing.join(' and ')} still need ids. Everything else is '
+          'reporting. Create the rest in the console and paste the ids into '
           'lib/services/play_ids.dart.',
     );
   }

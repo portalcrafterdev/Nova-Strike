@@ -107,6 +107,22 @@ class GameServicesController extends ChangeNotifier {
   /// submitting to a placeholder would fail once per level, quietly, forever.
   bool get idsConfigured => ids.configuredFor(android: isAndroid);
 
+  /// Whether the badges have real ids. Judged apart from the boards, because
+  /// the two are set up in the console as separate jobs and whichever is ready
+  /// first should start working.
+  bool get badgesConfigured =>
+      ids.achievementsConfiguredFor(android: isAndroid);
+
+  bool get boardsConfigured =>
+      ids.leaderboardsConfiguredFor(android: isAndroid);
+
+  /// Whether one board exists in the console yet.
+  bool hasBoard(LeaderboardId board) => PlayIds.ready(_idOfBoard(board));
+
+  bool get canSubmitBadges => isSignedIn && badgesConfigured;
+
+  bool get canSubmitScores => isSignedIn && boardsConfigured;
+
   /// The only state in which pushing a score is worth the call.
   bool get canSubmit => isSignedIn && idsConfigured;
 
@@ -196,23 +212,29 @@ class GameServicesController extends ChangeNotifier {
   /// drive it without waiting on a notification.
   Future<void> report() async {
     final progress = _watched;
-    if (progress == null || !canSubmit) {
+    if (progress == null || !isSignedIn) {
       return;
     }
+
+    // Each board and each badge is judged on its own id. Nothing here is
+    // gated on the whole table being filled in, because the console is worked
+    // through one item at a time and whatever already has an id should be
+    // working while the rest is still being created.
 
     // The ladder is reported from the medium run, so three settings do not
     // turn one board into three unrelated ones. The number sent is the last
     // level cleared, not the next one unlocked.
     final cleared = progress.highestLevelIn(Difficulty.medium) - 1;
-    if (cleared > _sentLevel) {
+    if (cleared > _sentLevel && await _submit(ids.highestLevel, cleared)) {
       _sentLevel = cleared;
-      await _submit(ids.highestLevel, cleared);
     }
 
-    final stars = progress.totalStars;
-    if (stars > _sentStars) {
+    // Stars across every setting, matching what the badges count. Reading the
+    // current setting alone made the board and the achievement bar disagree
+    // the moment a player switched to hard.
+    final stars = progress.starsEverywhere;
+    if (stars > _sentStars && await _submit(ids.totalStars, stars)) {
       _sentStars = stars;
-      await _submit(ids.totalStars, stars);
     }
 
     await _reportBadges(progress);
@@ -259,14 +281,22 @@ class GameServicesController extends ChangeNotifier {
   String _idOfBoard(LeaderboardId board) =>
       isAndroid ? board.android : board.ios;
 
-  Future<void> _submit(LeaderboardId board, int value) async {
-    await _guard(
-      () => backend.submitScore(
-        leaderboardId: _idOfBoard(board),
-        value: value,
-      ),
-      fallback: null,
-    );
+  /// Pushes one score, reporting whether it actually landed.
+  ///
+  /// False for a board with no id, and false for a call that threw or timed
+  /// out. The caller leaves its marker alone in both cases, so a score lost to
+  /// a dropped connection is offered again on the next level rather than being
+  /// counted as sent and never mentioned to the store again.
+  Future<bool> _submit(LeaderboardId board, int value) async {
+    final id = _idOfBoard(board);
+    if (!PlayIds.ready(id)) {
+      return false;
+    }
+    final sent = await _guard(() async {
+      await backend.submitScore(leaderboardId: id, value: value);
+      return true;
+    }, fallback: false);
+    return sent ?? false;
   }
 
   Future<void> _afterSignIn() async {

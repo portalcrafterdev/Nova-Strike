@@ -23,8 +23,17 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:novastrike/state/achievement_catalog.dart';
 import 'package:novastrike/theme/palette.dart';
 
-/// Where the bundle is written.
+/// Where the achievements bundle is written.
+///
+/// Nothing else may go in here. The ZIP is built from the whole folder and
+/// Play Console rejects one containing a file it did not ask for.
 const String _outDir = 'build/pgs';
+
+/// Where the leaderboard icons are written.
+///
+/// A separate folder because leaderboards have no bulk import: each one is
+/// created by hand in the console and its icon uploaded on the form.
+const String _boardDir = 'build/pgs-boards';
 
 /// Play Console wants exactly this, 512 square.
 const double _iconSize = 512;
@@ -152,6 +161,21 @@ const List<Color> _tints = [
   Palette.coin,
   Palette.bossShield,
   Palette.playerAccent,
+];
+
+/// One leaderboard, for the icon generator.
+class _Board {
+  const _Board(this.slug, this.icon, this.tint);
+
+  final String slug;
+  final IconData icon;
+  final Color tint;
+}
+
+/// The two boards the game reports to.
+const List<_Board> _boards = [
+  _Board('leaderboard_levels_cleared', Icons.flag, Palette.uiAccent),
+  _Board('leaderboard_stars_collected', Icons.stars, Palette.star),
 ];
 
 void main() {
@@ -287,11 +311,22 @@ void main() {
       );
     }
 
+    // The two leaderboard icons, in the same style so the whole Play Games
+    // page reads as one game. These are uploaded one at a time on the create
+    // leaderboard form rather than imported, so they go in their own folder
+    // and stay out of the ZIP.
+    for (final board in _boards) {
+      await _write(
+        '$_boardDir/${board.slug}.png',
+        await _renderBadge(board.icon, board.tint),
+      );
+    }
+
     // ignore: avoid_print
     print(
       'Bundle ready in $_outDir: ${AchievementCatalog.all.length} badges, '
       '${AchievementCatalog.totalPoints} points. Zip that folder and import '
-      'it in Play Console.',
+      'it in Play Console. Leaderboard icons are in $_boardDir.',
     );
   }, skip: Platform.environment['PGS'] == null);
 
