@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../game/components/power_up.dart';
@@ -57,19 +59,37 @@ class _HudState extends State<Hud> with SingleTickerProviderStateMixin {
                   children: [
                     ValueListenableBuilder<int>(
                       valueListenable: game.livesNotifier,
-                      builder: (context, lives, _) => Row(
-                        children: List.generate(
-                          lives.clamp(0, 8),
-                          (_) => const Padding(
-                            padding: EdgeInsets.only(right: 3),
-                            child: Icon(
-                              Icons.favorite,
-                              size: 16,
-                              color: Palette.bossHealthBar,
+                      // Lives are drawn as a fixed row of three, with the ones
+                      // already spent left in place and hollowed out rather
+                      // than removed. A row that shortens as you lose tells
+                      // you how many you have; a row that empties tells you
+                      // how many you have left out of how many there were,
+                      // which is the thing actually worth knowing.
+                      builder: (context, lives, _) {
+                        // A revive can push the count past what the run
+                        // started with, so the row grows rather than dropping
+                        // the extra heart on the floor.
+                        final total = math
+                            .max(game.progress.lives, lives)
+                            .clamp(1, 8);
+                        return Row(
+                          children: List.generate(
+                            total,
+                            (i) => Padding(
+                              padding: const EdgeInsets.only(right: 4),
+                              child: Icon(
+                                i < lives
+                                    ? Icons.favorite_rounded
+                                    : Icons.favorite_border_rounded,
+                                size: 26,
+                                color: i < lives
+                                    ? Palette.heartFull
+                                    : Palette.heartEmptyEdge,
+                              ),
                             ),
                           ),
-                        ),
-                      ),
+                        );
+                      },
                     ),
                     const Spacer(),
                     Column(

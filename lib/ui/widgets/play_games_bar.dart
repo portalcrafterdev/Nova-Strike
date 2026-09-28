@@ -29,43 +29,48 @@ class PlayGamesBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The badges are kept on the phone, so that button stands on its own even
-    // where there is no store to sign into. Only the sign in pill and the
-    // rankings need one.
-    final badges = NovaIconButton(
-      icon: Icons.emoji_events,
-      tooltip: 'Achievements',
-      onPressed: onOpenBadges,
-    );
-
-    if (!games.isSupported) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: Align(alignment: Alignment.centerRight, child: badges),
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        children: [
-          Expanded(child: _SignInPill(games: games, onSignIn: onSignIn)),
-          const SizedBox(width: 8),
-          badges,
-          const SizedBox(width: 8),
-          NovaIconButton(
-            icon: Icons.leaderboard,
-            tooltip: 'Rankings',
-            onPressed: onOpenRanks,
-          ),
-        ],
+    // One strip along the bottom of the menu holding who you are and the two
+    // places your record lives. It is quiet on purpose: signing in is worth
+    // offering on the first screen, and worth offering only once.
+    final shape = novaShape(edge: Palette.panelEdge, bevel: 20);
+    return DecoratedBox(
+      decoration: ShapeDecoration(shape: shape, color: Palette.panelFill),
+      child: Padding(
+        padding: const EdgeInsets.all(9),
+        child: Row(
+          children: [
+            if (games.isSupported) ...[
+              Expanded(child: _Identity(games: games, onSignIn: onSignIn)),
+              const SizedBox(width: 8),
+            ] else
+              const Spacer(),
+            // The badges are kept on the phone, so this stands on its own even
+            // where there is no store to sign into.
+            _SquareButton(
+              icon: Icons.emoji_events_rounded,
+              tint: Palette.star,
+              label: 'Achievements',
+              onPressed: onOpenBadges,
+            ),
+            if (games.isSupported) ...[
+              const SizedBox(width: 8),
+              _SquareButton(
+                icon: Icons.leaderboard_rounded,
+                tint: Palette.uiAccent,
+                label: 'Rankings',
+                onPressed: onOpenRanks,
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
 }
 
-class _SignInPill extends StatelessWidget {
-  const _SignInPill({required this.games, required this.onSignIn});
+/// The avatar and the two lines beside it, or the invitation to sign in.
+class _Identity extends StatelessWidget {
+  const _Identity({required this.games, required this.onSignIn});
 
   final GameServicesController games;
   final VoidCallback onSignIn;
@@ -76,76 +81,117 @@ class _SignInPill extends StatelessWidget {
     final signedIn = games.isSignedIn;
     final failed = games.status == GameServicesStatus.failed;
 
-    final Color tint = signedIn
-        ? Palette.uiAccent
-        : failed
-        ? Palette.uiAccentWarm
-        : Palette.uiTextDim;
-
-    final String label;
+    final String title;
+    final String note;
     if (signingIn) {
-      label = 'SIGNING IN';
+      title = 'Signing in';
+      note = 'One moment';
     } else if (signedIn) {
-      label = games.playerName?.toUpperCase() ?? 'SIGNED IN';
+      title = games.playerName ?? 'Signed in';
+      note = 'Signed in';
+    } else if (failed) {
+      title = 'Could not sign in';
+      note = 'Tap to try again';
     } else {
-      // The service is named rather than described, because the player is
-      // about to be handed that service's own sheet and the two should match.
-      label = 'SIGN IN WITH ${games.serviceName.toUpperCase()}';
+      title = 'Sign in';
+      note = games.serviceName;
     }
 
-    return DecoratedBox(
-      decoration: ShapeDecoration(
-        shape: novaShape(edge: signedIn ? Palette.uiAccent : Palette.panelEdge),
-        gradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Palette.panelFill, Palette.panelFillLow],
-        ),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        shape: novaShape(),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          // Tapping while signed in goes to the boards, which is the only
-          // thing left to want from here.
-          onTap: signingIn ? null : onSignIn,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-            child: Row(
-              children: [
-                if (signingIn)
-                  const SizedBox(
-                    width: 15,
-                    height: 15,
+    return InkWell(
+      // Tapping while signed in goes to the boards, which is the only thing
+      // left to want from here.
+      onTap: signingIn ? null : onSignIn,
+      borderRadius: BorderRadius.circular(14),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: signedIn ? Palette.panelFillGo : Palette.panelFillLow,
+            ),
+            child: signingIn
+                ? const Padding(
+                    padding: EdgeInsets.all(11),
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                else
-                  Icon(
-                    signedIn
-                        ? Icons.verified_user
+                : Icon(
+                    failed ? Icons.error_outline : Icons.person_rounded,
+                    size: 22,
+                    color: signedIn
+                        ? Palette.uiInkOnGo
                         : failed
-                        ? Icons.error_outline
-                        : Icons.sports_esports,
-                    size: 16,
-                    color: tint,
+                        ? Palette.uiAccentWarm
+                        : Palette.uiTextDim,
                   ),
-                const SizedBox(width: 9),
-                // Scaled down rather than clipped, because the longest of
-                // these labels is the service's own name and it must not come
-                // out as SIGN IN WITH GOOGLE PLAY GAM.
-                Expanded(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      style: AppType.hudSmall.copyWith(color: tint),
-                    ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppType.body.copyWith(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    fontVariations: const [FontVariation('wght', 800)],
                   ),
                 ),
+                Text(
+                  note,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppType.bodyDim.copyWith(fontSize: 12.5),
+                ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One of the two square buttons on the right of the strip.
+class _SquareButton extends StatelessWidget {
+  const _SquareButton({
+    required this.icon,
+    required this.tint,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final Color tint;
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final shape = novaShape(bevel: 14);
+    return Semantics(
+      button: true,
+      label: label,
+      child: SizedBox(
+        width: 44,
+        height: 44,
+        child: DecoratedBox(
+          decoration: ShapeDecoration(
+            shape: shape,
+            color: Palette.uiPanelLight,
+          ),
+          child: Material(
+            color: Colors.transparent,
+            shape: shape,
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: onPressed,
+              child: Icon(icon, size: 22, color: tint),
             ),
           ),
         ),

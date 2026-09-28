@@ -7,9 +7,10 @@ import '../../theme/palette.dart';
 import '../../theme/typography.dart';
 import '../widgets/ad_banner.dart';
 import '../widgets/difficulty_bar.dart';
+import '../widgets/mascot_ship.dart';
+import '../widgets/menu_parts.dart';
 import '../widgets/nova_button.dart';
 import '../widgets/play_games_bar.dart';
-import '../widgets/ship_mark.dart';
 import '../widgets/star_field.dart';
 import 'game_screen.dart';
 import 'hangar_screen.dart';
@@ -44,168 +45,32 @@ class MainMenu extends StatelessWidget {
               // does not, because a short phone must not clip the way in.
               return Center(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 28,
-                    vertical: 12,
-                  ),
+                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
+                      // What you have, then who you are, sit at the top out of
+                      // the way. Settings is an icon rather than a row on the
+                      // list, because it is the one thing here a player opens
+                      // once and then never again.
+                      Row(
                         children: [
-                          const ShipMark(),
-                          const SizedBox(height: 4),
-                          Text('NOVA', style: AppType.titleGlow),
-                          Text(
-                            'STRIKE',
-                            style: AppType.titleGlow.copyWith(
-                              color: Palette.uiAccent,
-                            ),
+                          StatPill(
+                            icon: Icons.monetization_on_rounded,
+                            tint: Palette.coin,
+                            value: '${progress.coins}',
                           ),
-                          const SizedBox(height: 14),
-                          const SizedBox(width: 210, child: RuleMark()),
-                          const SizedBox(height: 12),
-                          Text(
-                            'LEVEL ${progress.highestLevelUnlocked} OF '
-                            '${Tuning.totalLevels}',
-                            style: AppType.hudSmall,
+                          const SizedBox(width: 10),
+                          StatPill(
+                            icon: Icons.star_rounded,
+                            tint: Palette.star,
+                            value: '${progress.totalStars}',
                           ),
-                          const SizedBox(height: 16),
-                          _Stat(
-                            coins: progress.coins,
-                            stars: progress.totalStars,
-                          ),
-                          const SizedBox(height: 14),
-                          // Signing in belongs next to who the player is, not
-                          // behind a screen they have to think to open.
-                          PlayGamesBar(
-                            games: scope.games,
-                            onSignIn: () {
-                              scope.audio.play(Sfx.buttonTap);
-                              if (scope.games.isSignedIn) {
-                                Navigator.of(
-                                  context,
-                                ).pushNamed(LeaderboardScreen.route);
-                              } else {
-                                scope.games.signIn();
-                              }
-                            },
-                            onOpenBadges: () {
-                              scope.audio.play(Sfx.buttonTap);
-                              Navigator.of(
-                                context,
-                              ).pushNamed(AchievementsScreen.route);
-                            },
-                            onOpenRanks: () {
-                              scope.audio.play(Sfx.buttonTap);
-                              Navigator.of(
-                                context,
-                              ).pushNamed(LeaderboardScreen.route);
-                            },
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-                      // The setting sits directly above PLAY, because it
-                      // decides what PLAY is about to hand the player and it
-                      // changes the level number in the line above it.
-                      DifficultyBar(
-                        progress: progress,
-                        onChanged: (difficulty) {
-                          scope.audio.play(Sfx.buttonTap);
-                          progress.setDifficulty(difficulty);
-                        },
-                      ),
-                      const SizedBox(height: 10),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          NovaButton(
-                            label: 'PLAY',
-                            primary: true,
-                            icon: Icons.play_arrow,
-                            onPressed: () async {
-                              scope.audio.play(Sfx.buttonTap);
-                              final navigator = Navigator.of(context);
-                              // Before the level, not over it. The ad has to
-                              // be gone by the time the ship is flying.
-                              await scope.ads.onGameStart();
-                              navigator.push(
-                                MaterialPageRoute<void>(
-                                  builder: (_) => GameScreen(
-                                    levelNumber: progress.highestLevelUnlocked,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          NovaButton(
-                            label: 'ENDLESS',
-                            icon: Icons.all_inclusive,
-                            onPressed: () async {
-                              scope.audio.play(Sfx.buttonTap);
-                              final navigator = Navigator.of(context);
-                              await scope.ads.onGameStart();
-                              navigator.push(
-                                MaterialPageRoute<void>(
-                                  builder: (_) => const GameScreen(
-                                    levelNumber: 1,
-                                    endless: true,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: NovaButton(
-                                  label: 'LEVELS',
-                                  icon: Icons.grid_view,
-                                  onPressed: () {
-                                    scope.audio.play(Sfx.buttonTap);
-                                    Navigator.of(
-                                      context,
-                                    ).pushNamed(LevelMap.route);
-                                  },
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: NovaButton(
-                                  label: 'HANGAR',
-                                  icon: Icons.rocket_launch,
-                                  onPressed: () {
-                                    scope.audio.play(Sfx.buttonTap);
-                                    Navigator.of(
-                                      context,
-                                    ).pushNamed(HangarScreen.route);
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          // Full width, because at half width the label comes
-                          // out as UPGRA and a button that cannot say what it
-                          // does is not a button.
-                          NovaButton(
-                            label: 'UPGRADES',
-                            icon: Icons.upgrade,
-                            onPressed: () {
-                              scope.audio.play(Sfx.buttonTap);
-                              Navigator.of(
-                                context,
-                              ).pushNamed(UpgradeScreen.route);
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          NovaButton(
-                            label: 'SETTINGS',
-                            icon: Icons.settings,
+                          const Spacer(),
+                          RoundIconButton(
+                            icon: Icons.settings_rounded,
+                            label: 'Settings',
                             onPressed: () {
                               scope.audio.play(Sfx.buttonTap);
                               Navigator.of(
@@ -215,61 +80,159 @@ class MainMenu extends StatelessWidget {
                           ),
                         ],
                       ),
+                      const SizedBox(height: 10),
+                      const Center(child: MascotShip()),
+                      const SizedBox(height: 2),
+                      // The wordmark is the one place the colour font is
+                      // worth its weight. Nothing here sets a colour on it,
+                      // because a COLRv1 face carries its own and would
+                      // ignore one anyway.
+                      const Text(
+                        'NOVA\nSTRIKE',
+                        textAlign: TextAlign.center,
+                        style: AppType.display,
+                      ),
+                      const SizedBox(height: 12),
+                      ProgressPill(
+                        level: progress.highestLevelUnlocked,
+                        total: Tuning.totalLevels,
+                      ),
+                      const SizedBox(height: 12),
+                      // The setting sits directly above PLAY, because it
+                      // decides what PLAY is about to hand the player and it
+                      // changes the level number in the bar above it.
+                      DifficultyBar(
+                        progress: progress,
+                        onChanged: (difficulty) {
+                          scope.audio.play(Sfx.buttonTap);
+                          progress.setDifficulty(difficulty);
+                        },
+                      ),
+                      const SizedBox(height: 4),
+                      NovaButton(
+                        label: 'PLAY',
+                        primary: true,
+                        icon: Icons.play_arrow_rounded,
+                        height: 76,
+                        onPressed: () async {
+                          scope.audio.play(Sfx.buttonTap);
+                          final navigator = Navigator.of(context);
+                          // Before the level, not over it. The ad has to be
+                          // gone by the time the ship is flying.
+                          await scope.ads.onGameStart();
+                          navigator.push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => GameScreen(
+                                levelNumber: progress.highestLevelUnlocked,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      NovaButton(
+                        label: 'ENDLESS',
+                        icon: Icons.all_inclusive_rounded,
+                        tone: NovaTone.fun,
+                        height: 58,
+                        onPressed: () async {
+                          scope.audio.play(Sfx.buttonTap);
+                          final navigator = Navigator.of(context);
+                          await scope.ads.onGameStart();
+                          navigator.push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const GameScreen(
+                                levelNumber: 1,
+                                endless: true,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      // Three tiles rather than three more full width rows.
+                      // Everything below PLAY is somewhere you go between
+                      // runs, and it should look like a shelf rather than
+                      // like more ways to start the game.
+                      Row(
+                        children: [
+                          Expanded(
+                            child: MenuTile(
+                              icon: Icons.grid_view_rounded,
+                              label: 'LEVELS',
+                              tint: Palette.uiAccent,
+                              onPressed: () {
+                                scope.audio.play(Sfx.buttonTap);
+                                Navigator.of(
+                                  context,
+                                ).pushNamed(LevelMap.route);
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: MenuTile(
+                              icon: Icons.rocket_launch_rounded,
+                              label: 'HANGAR',
+                              tint: Palette.shipInterceptor,
+                              onPressed: () {
+                                scope.audio.play(Sfx.buttonTap);
+                                Navigator.of(
+                                  context,
+                                ).pushNamed(HangarScreen.route);
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: MenuTile(
+                              icon: Icons.arrow_upward_rounded,
+                              label: 'UPGRADE',
+                              tint: Palette.star,
+                              onPressed: () {
+                                scope.audio.play(Sfx.buttonTap);
+                                Navigator.of(
+                                  context,
+                                ).pushNamed(UpgradeScreen.route);
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      // Signing in belongs next to who the player is, not
+                      // behind a screen they have to think to open.
+                      PlayGamesBar(
+                        games: scope.games,
+                        onSignIn: () {
+                          scope.audio.play(Sfx.buttonTap);
+                          if (scope.games.isSignedIn) {
+                            Navigator.of(
+                              context,
+                            ).pushNamed(LeaderboardScreen.route);
+                          } else {
+                            scope.games.signIn();
+                          }
+                        },
+                        onOpenBadges: () {
+                          scope.audio.play(Sfx.buttonTap);
+                          Navigator.of(
+                            context,
+                          ).pushNamed(AchievementsScreen.route);
+                        },
+                        onOpenRanks: () {
+                          scope.audio.play(Sfx.buttonTap);
+                          Navigator.of(
+                            context,
+                          ).pushNamed(LeaderboardScreen.route);
+                        },
+                      ),
                     ],
                   ),
                 ),
               );
             },
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Stat extends StatelessWidget {
-  const _Stat({required this.coins, required this.stars});
-
-  final int coins;
-  final int stars;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _Chip(icon: Icons.monetization_on, tint: Palette.coin, value: coins),
-        const SizedBox(width: 12),
-        _Chip(icon: Icons.star, tint: Palette.star, value: stars),
-      ],
-    );
-  }
-}
-
-/// A readout in a chamfered pill: coins on the left, stars on the right.
-class _Chip extends StatelessWidget {
-  const _Chip({required this.icon, required this.tint, required this.value});
-
-  final IconData icon;
-  final Color tint;
-  final int value;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: ShapeDecoration(
-        shape: novaShape(edge: Palette.panelEdge),
-        color: Palette.panelFill,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: tint, size: 16),
-            const SizedBox(width: 8),
-            Text('$value', style: AppType.hud),
-          ],
         ),
       ),
     );

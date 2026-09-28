@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../ads/ads_controller.dart';
 import '../../audio/sfx.dart';
 import '../../game/nova_game.dart';
-import '../../theme/palette.dart';
 import '../../theme/typography.dart';
 import '../widgets/nova_button.dart';
 import '../widgets/space_scrim.dart';
@@ -94,12 +93,14 @@ class _GameOverSheetState extends State<GameOverSheet> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    'SHIP LOST',
+                  // Not SHIP LOST. Losing is the most common thing that
+                  // happens in this game and the moment a child is most
+                  // likely to put it down, so the banner is a shrug rather
+                  // than a verdict. Retry stays one tap away and ungated.
+                  const Text(
+                    'OOPS',
                     textAlign: TextAlign.center,
-                    style: AppType.heading.copyWith(
-                      color: Palette.bossHealthBar,
-                    ),
+                    style: AppType.display,
                   ),
                   const SizedBox(height: 8),
                   Text(

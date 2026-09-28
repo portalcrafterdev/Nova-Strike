@@ -12,7 +12,7 @@ import '../widgets/volume_slider.dart';
 /// It carries the same three sliders as the settings screen in compact form,
 /// so volume can be changed mid fight without leaving the level. The sliders
 /// sit above the choices in one column, because half of a portrait screen is
-/// not wide enough for a button to say QUIT TO MENU without eliding it.
+/// not wide enough for a button to say RESTART LEVEL without eliding it.
 class PauseOverlay extends StatefulWidget {
   const PauseOverlay({required this.game, super.key});
 
@@ -107,8 +107,11 @@ class _PauseOverlayState extends State<PauseOverlay> {
                   ),
                   const SizedBox(height: 10),
                   NovaButton(
-                    label: 'QUIT TO MENU',
-                    icon: Icons.exit_to_app,
+                    // One short word. The type on a button is a good deal
+                    // bigger than it was, and a child reads HOME faster than
+                    // QUIT TO MENU even when both fit.
+                    label: 'HOME',
+                    icon: Icons.home_rounded,
                     onPressed: () {
                       audio.play(Sfx.buttonTap);
                       widget.game.onQuit?.call();

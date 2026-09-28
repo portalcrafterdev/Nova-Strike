@@ -24,6 +24,8 @@ import 'package:novastrike/ui/screens/level_map.dart';
 import 'package:novastrike/ui/screens/main_menu.dart';
 import 'package:novastrike/ui/screens/settings_screen.dart';
 import 'package:novastrike/ui/screens/upgrade_screen.dart';
+import 'package:novastrike/theme/palette.dart';
+import 'package:novastrike/ui/widgets/menu_parts.dart';
 import 'package:novastrike/ui/widgets/volume_slider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -54,11 +56,61 @@ void main() {
 
     expect(find.text('PLAY'), findsOneWidget);
     expect(find.text('LEVELS'), findsOneWidget);
-    expect(find.text('UPGRADES'), findsOneWidget);
-    expect(find.text('SETTINGS'), findsOneWidget);
+    expect(find.text('UPGRADE'), findsOneWidget);
     expect(find.text('ENDLESS'), findsOneWidget);
     expect(find.text('HANGAR'), findsOneWidget);
-    expect(find.textContaining('LEVEL 1 OF 1500'), findsOneWidget);
+
+    // Settings lost its row and became the icon in the top corner. It is the
+    // one thing on this menu a player opens once, so it is still here and
+    // still one tap, but it no longer takes a slot from the ways to play.
+    expect(
+      find.byIcon(Icons.settings_rounded),
+      findsOneWidget,
+      reason: 'there is no way to reach settings from the menu',
+    );
+
+    // How far through the campaign the player is, now a bar with the two
+    // numbers at its ends rather than one sentence.
+    expect(find.text('LEVEL 1'), findsOneWidget);
+    expect(find.text('1500'), findsOneWidget);
+  });
+
+  testWidgets('the campaign bar shows something on the first level', (
+    tester,
+  ) async {
+    // One level in fifteen hundred is 0.07 percent. Drawn as a plain fraction
+    // of the width that is a quarter of a pixel, so the bar reads as empty for
+    // the first several hundred levels and looks broken to every new player.
+    // Nobody building this notices, because the save being tested with is
+    // always further along than the save a new player has.
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 360,
+            child: ProgressPill(level: 1, total: Tuning.totalLevels),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final fills = tester
+        .widgetList<Container>(find.byType(Container))
+        .where((box) {
+          final decoration = box.decoration;
+          return decoration is BoxDecoration &&
+              decoration.color == Palette.panelFillLit;
+        })
+        .toList();
+    expect(fills, isNotEmpty, reason: 'the bar has no fill at all');
+
+    final painted = tester.renderObject<RenderBox>(find.byWidget(fills.first));
+    expect(
+      painted.size.width,
+      greaterThanOrEqualTo(painted.size.height),
+      reason: 'the fill is thinner than it is tall, so it is not visible',
+    );
   });
 
   testWidgets('the menu offers sign in without opening another screen', (
@@ -75,13 +127,20 @@ void main() {
     await tester.pump();
 
     expect(tester.takeException(), isNull, reason: 'the menu does not lay out');
+    // The strip says what it is over two lines rather than one shouted one,
+    // so the invitation and the service it signs into are checked separately.
     expect(
-      find.text('SIGN IN WITH ${scope.games.serviceName.toUpperCase()}'),
+      find.text('Sign in'),
       findsOneWidget,
       reason: 'there is no way to sign in from the menu',
     );
+    expect(
+      find.text(scope.games.serviceName),
+      findsOneWidget,
+      reason: 'the strip does not say which service it signs into',
+    );
     // And the way through to the boards is right beside it.
-    expect(find.byIcon(Icons.leaderboard), findsOneWidget);
+    expect(find.byIcon(Icons.leaderboard_rounded), findsOneWidget);
   });
 
   testWidgets('the ranks screen opens from the menu and stands on its own', (
@@ -393,6 +452,10 @@ void main() {
     // each button half a portrait screen wide and turned QUIT TO MENU into
     // QUI and NEXT LEVEL into NEX. A button that cannot say what it does is
     // not a button.
+    //
+    // It earned its keep a second time when the button face grew from 16pt
+    // monospace to 21pt Baloo2: QUIT TO MENU stopped fitting, and the label
+    // was cut to HOME rather than the type being shrunk back.
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
@@ -410,7 +473,7 @@ void main() {
           ..spec = LevelGenerator.generate(1);
 
     final sheets = <Widget, List<String>>{
-      PauseOverlay(game: game): ['RESUME', 'RESTART', 'QUIT TO MENU'],
+      PauseOverlay(game: game): ['RESUME', 'RESTART', 'HOME'],
       LevelCompleteSheet(game: game): ['NEXT LEVEL', 'REPLAY', 'MENU'],
       GameOverSheet(game: game): ['RETRY', 'MENU'],
     };

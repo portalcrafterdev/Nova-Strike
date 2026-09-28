@@ -69,6 +69,24 @@ flutter:
     - assets/audio/sfx/
     - assets/audio/music/
 
+  # Both faces ship in the bundle rather than being fetched. The game is
+  # offline, so a font that needs the network is a font that sometimes is not
+  # there.
+  #
+  # Baloo2 is a variable font and the only form Google publishes it in, so
+  # there is one file rather than one per weight and the weight is asked for
+  # with a FontVariation in typography.dart.
+  #
+  # BungeeSpice carries its own colour in a COLRv1 table. Nothing can tint it,
+  # which is why it is used for the wordmark and the two result banners only.
+  fonts:
+    - family: Baloo2
+      fonts:
+        - asset: assets/fonts/Baloo2-var.ttf
+    - family: BungeeSpice
+      fonts:
+        - asset: assets/fonts/BungeeSpice-Regular.ttf
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

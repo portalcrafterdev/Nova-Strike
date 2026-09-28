@@ -145,6 +145,16 @@ class Sprites {
   /// The canopy colour for an enemy, a lifted version of its own hull.
   static Color _canopy(Color body) => _lift(body, 0.38);
 
+  /// The ink a face is drawn in.
+  ///
+  /// Near black rather than black, so an eye on a pale canopy reads as an eye
+  /// rather than as a hole punched through the hull.
+  static const Color _faceInk = Color(0xFF12103A);
+
+  /// How many sides an eye is cut from. Eight is round enough at the size one
+  /// is drawn and a quarter of the points a real circle would cost.
+  static const int _eyeSides = 8;
+
   /// The airframe every ship in the game is cut from.
   ///
   /// Seen from above it is a fuselage that tapers to a point at the nose, a
@@ -166,6 +176,7 @@ class Sprites {
     required double tail,
     bool pods = false,
     bool canards = false,
+    bool face = false,
     Color? podColor,
     double facing = 1,
     double s = 1,
@@ -250,19 +261,82 @@ class Sprites {
     );
 
     // The canopy and the exhaust, the two lit details on the hull.
-    parts.add(
-      SpritePart(_sym([
-        [0, z(along(0.18))],
-        [u(bodyWidth * 0.55), z(along(0.38))],
-        [0, z(along(0.60))],
-      ]), accent, outlined: false),
-    );
+    //
+    // A hull that carries a face gets a rounder and wider one. The narrow
+    // diamond every other ship wears is too tight a container for two eyes:
+    // they end up sitting on its shoulders, where they read as rivets rather
+    // than as anything looking back at you.
+    if (face) {
+      parts.add(
+        SpritePart(
+          _ring(
+            12,
+            radiusX: u(bodyWidth * 0.66),
+            radiusZ: u((along(0.16) - along(0.62)).abs() / 2),
+            atX: 0,
+            atZ: z(along(0.39)),
+          ),
+          accent,
+          outlined: false,
+        ),
+      );
+    } else {
+      parts.add(
+        SpritePart(_sym([
+          [0, z(along(0.18))],
+          [u(bodyWidth * 0.55), z(along(0.38))],
+          [0, z(along(0.60))],
+        ]), accent, outlined: false),
+      );
+    }
     parts.add(
       SpritePart(_sym([
         [u(bodyWidth * 0.5), z(tail + 2)],
         [u(bodyWidth * 0.5), z(tail - 1)],
       ]), _lift(accent, 0.35), outlined: false),
     );
+
+    // A pair of eyes in the canopy.
+    //
+    // This is the cheapest change in the whole look and the one a child reads
+    // first: it turns a vehicle into somebody. It is off by default because it
+    // only works on a hull big enough to carry it. On a drone a few pixels
+    // across the eyes collapse into one dark smudge, which reads as damage
+    // rather than as a face.
+    if (face) {
+      final eyeX = u(bodyWidth * 0.30);
+      final eyeR = u(bodyWidth * 0.26);
+      for (final side in const [-1.0, 1.0]) {
+        parts.add(
+          SpritePart(
+            _ring(
+              _eyeSides,
+              radiusX: eyeR,
+              radiusZ: eyeR,
+              atX: eyeX * side,
+              atZ: z(along(0.33)),
+            ),
+            _faceInk,
+            outlined: false,
+          ),
+        );
+      }
+      // A small open mouth under them. Flattened, because a round one reads
+      // as a third eye at the size this is drawn at.
+      parts.add(
+        SpritePart(
+          _ring(
+            _eyeSides,
+            radiusX: u(bodyWidth * 0.24),
+            radiusZ: u(bodyWidth * 0.13),
+            atX: 0,
+            atZ: z(along(0.48)),
+          ),
+          _faceInk,
+          outlined: false,
+        ),
+      );
+    }
 
     return Sprite2D(parts);
   }
@@ -277,6 +351,7 @@ class Sprites {
     required Color accent,
     bool pods = false,
     bool canards = false,
+    bool face = false,
     Color? podColor,
     double nose = 26,
     double span = 20,
@@ -289,6 +364,7 @@ class Sprites {
       accent: accent,
       pods: pods,
       canards: canards,
+      face: face,
       podColor: podColor,
       nose: nose,
       span: span,

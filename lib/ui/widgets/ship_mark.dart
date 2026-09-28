@@ -40,6 +40,7 @@ class _MarkPainter extends CustomPainter {
     hull: Palette.playerHull,
     hullDark: Palette.playerHullDark,
     accent: Palette.playerAccent,
+    face: true,
   );
 
   static final Paint _halo = Paint();

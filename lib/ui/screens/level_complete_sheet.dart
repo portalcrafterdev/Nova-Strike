@@ -57,10 +57,20 @@ class _LevelCompleteSheetState extends State<LevelCompleteSheet> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    'LEVEL ${game.levelNumber} CLEAR',
+                  // The banner is the one moment on this sheet worth
+                  // celebrating, so it gets the colour face. The level number
+                  // moves out of it and onto its own line: the wordmark face
+                  // is wide, and CLEAR on its own reads from further away.
+                  const Text(
+                    'CLEAR',
                     textAlign: TextAlign.center,
-                    style: AppType.heading.copyWith(color: Palette.uiAccent),
+                    style: AppType.display,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'LEVEL ${game.levelNumber}',
+                    textAlign: TextAlign.center,
+                    style: AppType.hudSmall,
                   ),
                   const SizedBox(height: 16),
                   Row(

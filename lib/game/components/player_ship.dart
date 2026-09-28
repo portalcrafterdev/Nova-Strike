@@ -57,6 +57,9 @@ class PlayerShip extends Component
         accent: def.accent,
         pods: tier >= Tuning.podRackTier,
         canards: tier >= Tuning.canardTier,
+        // The ship the player is actually flying is the one hull in a level
+        // worth giving a face to. Everything else on screen is traffic.
+        face: true,
         podColor: Palette.playerPod,
         nose: def.nose,
         span: def.span,
