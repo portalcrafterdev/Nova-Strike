@@ -103,6 +103,7 @@ class NovaButton extends StatelessWidget {
     this.enabled = true,
     this.tone,
     this.height,
+    this.compact = false,
     super.key,
   });
 
@@ -120,6 +121,13 @@ class NovaButton extends StatelessWidget {
 
   /// Forces a height, for the two buttons the menu sizes by hand.
   final double? height;
+
+  /// Smaller label, icon and padding, for a button sharing a row.
+  ///
+  /// Two buttons side by side on a portrait phone get about 150 logical
+  /// pixels each, and at the full size the label is ellipsised: a button that
+  /// cannot say what it does is not a button.
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -172,14 +180,17 @@ class NovaButton extends StatelessWidget {
                   maxHeight: height ?? double.infinity,
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: compact ? 12 : 20,
+                    vertical: 14,
+                  ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       if (icon != null) ...[
-                        Icon(icon, size: 22, color: ink),
-                        const SizedBox(width: 10),
+                        Icon(icon, size: compact ? 20 : 22, color: ink),
+                        SizedBox(width: compact ? 8 : 10),
                       ],
                       // Flexible, so a pair of buttons sharing a row on a
                       // narrow screen shrinks the label rather than
@@ -187,9 +198,14 @@ class NovaButton extends StatelessWidget {
                       Flexible(
                         child: Text(
                           label,
-                          style: primary
-                              ? AppType.buttonLit
-                              : AppType.button.copyWith(color: ink),
+                          style:
+                              (primary
+                                      ? AppType.buttonLit
+                                      : AppType.button.copyWith(color: ink))
+                                  .copyWith(
+                                    fontSize: compact ? 16 : null,
+                                    letterSpacing: compact ? 0.4 : null,
+                                  ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),

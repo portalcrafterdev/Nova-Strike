@@ -12,6 +12,7 @@ import '../audio/sfx.dart';
 import '../levels/difficulty_curve.dart';
 import '../levels/level_generator.dart';
 import '../levels/level_spec.dart';
+import '../state/achievement_catalog.dart';
 import '../state/player_progress.dart';
 import '../theme/palette.dart';
 import 'components/boss.dart';
@@ -187,6 +188,16 @@ class NovaGame extends FlameGame<NovaWorld> with HasCollisionDetection {
   );
 
   int lives = Tuning.playerLives;
+
+  /// Badges the player did not have when this level started and has now.
+  ///
+  /// Worked out by diffing the catalogue against the save either side of the
+  /// run rather than by having each badge announce itself. One place to get it
+  /// wrong instead of fifteen, and it stays right when a badge is added.
+  List<AchievementDef> badgesJustEarned = const [];
+
+  Set<String> _badgesBefore = const {};
+
   int score = 0;
   /// Counted for the run and folded into the lifetime totals when the level
   /// ends. Kept here rather than written straight to disk, because thirty
@@ -275,6 +286,15 @@ class NovaGame extends FlameGame<NovaWorld> with HasCollisionDetection {
     coinsSpawned = 0;
     lostALife = false;
     status = GameStatus.playing;
+
+    // What the player already had before this run, so the sheet at the end can
+    // work out what is new. Taken here rather than when the run is banked,
+    // because clearing the level writes to the save first and a badge earned
+    // by that write would otherwise look like it had always been there.
+    _badgesBefore = {
+      for (final badge in AchievementCatalog.earnedIn(progress)) badge.id,
+    };
+    badgesJustEarned = const [];
 
     livesNotifier.value = lives;
     scoreNotifier.value = 0;
@@ -497,6 +517,10 @@ class NovaGame extends FlameGame<NovaWorld> with HasCollisionDetection {
       cleared: cleared,
       bossLevel: spec.kind == LevelKind.boss,
     );
+    badgesJustEarned = [
+      for (final badge in AchievementCatalog.earnedIn(progress))
+        if (!_badgesBefore.contains(badge.id)) badge,
+    ];
   }
 
   /// The score to show when a run ends: the level in a campaign run, the whole

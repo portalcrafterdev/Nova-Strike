@@ -26,6 +26,7 @@ import 'package:novastrike/ui/screens/settings_screen.dart';
 import 'package:novastrike/ui/screens/upgrade_screen.dart';
 import 'package:novastrike/theme/palette.dart';
 import 'package:novastrike/ui/widgets/menu_parts.dart';
+import 'package:novastrike/ui/widgets/result_parts.dart';
 import 'package:novastrike/ui/widgets/volume_slider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -73,6 +74,108 @@ void main() {
     // numbers at its ends rather than one sentence.
     expect(find.text('LEVEL 1'), findsOneWidget);
     expect(find.text('1500'), findsOneWidget);
+  });
+
+  testWidgets('the result sheet arrives rather than appears', (tester) async {
+    // The whole sheet is the reward for the level. Printed in its finished
+    // state the instant it opens, it reads as a receipt.
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+
+    final save = SaveService();
+    await save.init();
+    final game =
+        NovaGame(
+            audio: AudioController(save),
+            progress: PlayerProgress(save),
+            levelNumber: 1,
+          )
+          ..spec = LevelGenerator.generate(1)
+          ..score = 1234;
+
+    await tester.pumpWidget(
+      MaterialApp(home: Material(child: LevelCompleteSheet(game: game))),
+    );
+    await tester.pump();
+
+    final total = formatCount(game.runScore);
+    expect(
+      find.text(total),
+      findsNothing,
+      reason: 'the totals are printed rather than counted up to',
+    );
+
+    await tester.pumpAndSettle();
+    expect(
+      find.text(total),
+      findsOneWidget,
+      reason: 'the count does not land on the real total',
+    );
+  });
+
+  testWidgets('the stars are counted out rather than already there', (
+    tester,
+  ) async {
+    // The stars are the whole reward for the level. Drawn in their final
+    // state the moment the sheet opens, the reward has already happened by
+    // the time the player looks at it, and it stops being felt as one.
+    final landed = <int>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: StarRow(earned: 3, onLanded: landed.add)),
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      landed,
+      isEmpty,
+      reason: 'the stars are already there on the first frame',
+    );
+
+    // Part way through the sequence: some have landed and some have not.
+    // Written against the timing constants rather than a number of
+    // milliseconds, so retuning the sequence does not break the test that is
+    // protecting it.
+    await tester.pump(ResultTiming.starsBegin + StarRow.fall);
+    expect(
+      landed,
+      isNotEmpty,
+      reason: 'no star had landed part way through the sequence',
+    );
+    expect(
+      landed.length,
+      lessThan(3),
+      reason: 'the stars all arrive at once instead of one at a time',
+    );
+    expect(landed, orderedEquals(List.generate(landed.length, (i) => i)));
+
+    await tester.pumpAndSettle();
+    expect(landed, [0, 1, 2], reason: 'not every earned star arrived');
+  });
+
+  testWidgets('a player who turned animation off is just told the result', (
+    tester,
+  ) async {
+    // Reduce motion is an accessibility setting, not a preference to be
+    // overridden by something the developer thinks is worth seeing.
+    final landed = <int>[];
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(disableAnimations: true),
+        child: MaterialApp(
+          home: Scaffold(body: StarRow(earned: 2, onLanded: landed.add)),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      landed,
+      [0, 1],
+      reason: 'the stars still animate when animation is turned off',
+    );
   });
 
   testWidgets('the campaign bar shows something on the first level', (
@@ -474,7 +577,7 @@ void main() {
 
     final sheets = <Widget, List<String>>{
       PauseOverlay(game: game): ['RESUME', 'RESTART', 'HOME'],
-      LevelCompleteSheet(game: game): ['NEXT LEVEL', 'REPLAY', 'MENU'],
+      LevelCompleteSheet(game: game): ['NEXT LEVEL', 'REPLAY', 'HOME'],
       GameOverSheet(game: game): ['RETRY', 'MENU'],
     };
 
@@ -489,7 +592,7 @@ void main() {
         expect(
           paragraph.didExceedMaxLines,
           isFalse,
-          reason: ' does not fit on its button',
+          reason: '$label does not fit on its button',
         );
       }
     }
