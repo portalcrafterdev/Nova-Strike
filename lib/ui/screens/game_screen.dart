@@ -42,7 +42,14 @@ class _GameScreenState extends State<GameScreen> {
   late final TutorialController _tutorial = TutorialController(
     steps: flightTutorialSteps(_targets),
     flag: flightTutorialFlag,
+    // Every time level 1 is opened, not once ever. Which level it runs on is
+    // what decides who sees it now, so the flag has nothing left to say.
+    everyTime: true,
   );
+
+  /// Whether this run is the one that teaches flying.
+  bool get _teachesFlight =>
+      teachesFlightOn(level: widget.levelNumber, endless: widget.endless);
 
   /// True once there is a frame to hold. A game paused before it has rendered
   /// anything shows black, because there is nothing to hold.
@@ -85,7 +92,9 @@ class _GameScreenState extends State<GameScreen> {
   /// freeze it, then lets the launcher know.
   Future<void> _armTutorial() async {
     final game = _game;
-    if (game == null) {
+    if (game == null || !_teachesFlight) {
+      // Any other level leaves the launcher disabled, so nothing is ever
+      // started and the game is never held still waiting for a drag.
       return;
     }
     await game.loaded;

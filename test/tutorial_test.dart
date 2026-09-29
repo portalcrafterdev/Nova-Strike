@@ -551,6 +551,56 @@ void main() {
       expect(steps[1].travel.dy, greaterThan(0), reason: 'down is not down');
     });
 
+    test('it is taught on level 1, and only there', () {
+      expect(teachesFlightOn(level: 1, endless: false), isTrue);
+
+      // A player whose first game is level 40, because they came back to an
+      // old save or jumped there from the map, was being taught the controls
+      // in the middle of a fight hard enough to kill them while they read.
+      expect(teachesFlightOn(level: 2, endless: false), isFalse);
+      expect(teachesFlightOn(level: 40, endless: false), isFalse);
+
+      // Endless starts at level 1 and is not the campaign's first level.
+      // Anybody choosing it has already played.
+      expect(teachesFlightOn(level: 1, endless: true), isFalse);
+    });
+
+    testWidgets('it runs again on a level 1 the player has already seen', (
+      tester,
+    ) async {
+      // The whole point of tying it to a level. Somebody coming back after a
+      // month is being taught, not reminded, and a flag set on the very first
+      // run means they never see it again for the life of the install.
+      phone(tester);
+      final targets = FlightTutorialTargets.wholeScreen();
+      final store = MemoryTutorialStore();
+      await store.markSeen(flightTutorialFlag);
+
+      final controller = TutorialController(
+        steps: flightTutorialSteps(targets),
+        flag: flightTutorialFlag,
+        everyTime: true,
+        store: store,
+      );
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: TutorialLauncher(
+            controller: controller,
+            child: Scaffold(body: SizedBox.expand(key: targets.up)),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        controller.current?.id,
+        FlightLesson.up,
+        reason: 'a seen flag still silences the lesson',
+      );
+    });
+
     testWidgets('steering up then down finishes it', (tester) async {
       phone(tester);
       final targets = FlightTutorialTargets.wholeScreen();

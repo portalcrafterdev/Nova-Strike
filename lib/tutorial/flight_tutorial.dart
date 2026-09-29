@@ -61,6 +61,25 @@ List<TutorialStep> flightTutorialSteps(FlightTutorialTargets targets) => [
   ),
 ];
 
-/// Versioned, so a rewritten lesson can be shown again to somebody who saw the
-/// old one.
+/// The one level the flight lesson is taught on.
+const int flightLessonLevel = 1;
+
+/// Whether this run is the one that teaches flying.
+///
+/// Level 1 and only level 1, every time it is opened rather than once ever.
+/// Two reasons for tying it to a level instead of to a flag. A player whose
+/// first game is level 40, because they came back to an old save or jumped
+/// there from the map, was being taught the controls in the middle of a fight
+/// hard enough to kill them while they read. And on level 1 the lesson costs
+/// nothing to anyone who does not need it: two drags, which is what they were
+/// about to do anyway.
+///
+/// Endless is excluded even though it starts at level 1. It is not the
+/// campaign's first level, and somebody choosing endless has already played.
+bool teachesFlightOn({required int level, required bool endless}) =>
+    !endless && level == flightLessonLevel;
+
+/// Kept because the controller takes one, and read only if [teachesFlightOn]
+/// is ever paired with a once only sequence again. The flight lesson runs in
+/// every time mode, where the flag is never consulted.
 const String flightTutorialFlag = 'tutorial.flight.v1';
