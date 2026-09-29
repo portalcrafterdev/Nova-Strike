@@ -92,34 +92,7 @@ class _HudState extends State<Hud> with SingleTickerProviderStateMixin {
                       },
                     ),
                     const Spacer(),
-                    Column(
-                      children: [
-                        ValueListenableBuilder<int>(
-                          valueListenable: game.levelNotifier,
-                          builder: (context, level, _) => Text(
-                            game.progress.difficulty == Difficulty.medium
-                                ? 'LEVEL $level'
-                                : 'LEVEL $level  '
-                                      '${DifficultyTuning.labelOf(game.progress.difficulty)}',
-                            style: AppType.hud,
-                          ),
-                        ),
-                        ValueListenableBuilder<String>(
-                          valueListenable: game.modifierNotifier,
-                          builder: (context, modifier, _) {
-                            if (modifier.isEmpty) {
-                              return const SizedBox.shrink();
-                            }
-                            return Text(
-                              modifier,
-                              style: AppType.hudSmall.copyWith(
-                                color: Palette.uiAccentWarm,
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
+                    _LevelPill(game: game),
                     const Spacer(),
                     NovaIconButton(
                       icon: Icons.pause,
@@ -128,30 +101,17 @@ class _HudState extends State<Hud> with SingleTickerProviderStateMixin {
                   ],
                 ),
                 const SizedBox(height: 4),
+                // Both ends, nothing in the middle. The coin count used to sit
+                // between two spacers, which put it dead centre of the screen:
+                // the column enemies fly down, directly under the level
+                // number, so a wave arriving crossed it and an explosion
+                // erased it. Readouts belong at the edges, where nothing is
+                // flying.
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    ValueListenableBuilder<int>(
-                      valueListenable: game.scoreNotifier,
-                      builder: (context, score, _) =>
-                          Text('SCORE $score', style: AppType.hudSmall),
-                    ),
-                    const Spacer(),
-                    ValueListenableBuilder<int>(
-                      valueListenable: game.coinsNotifier,
-                      builder: (context, coins, _) => Row(
-                        children: [
-                          const Icon(
-                            Icons.monetization_on,
-                            size: 12,
-                            color: Palette.coin,
-                          ),
-                          const SizedBox(width: 4),
-                          Text('$coins', style: AppType.hudSmall),
-                        ],
-                      ),
-                    ),
-                    const Spacer(),
-                    _Objective(game: game),
+                    Flexible(child: _TallyPill(game: game)),
+                    Flexible(child: _HudPill(child: _Objective(game: game))),
                   ],
                 ),
                 const SizedBox(height: 6),
@@ -163,6 +123,172 @@ class _HudState extends State<Hud> with SingleTickerProviderStateMixin {
               ],
             ),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+/// One readout across the top of the play area.
+///
+/// Filled and outlined rather than bare text. The display is drawn over the
+/// game, so what sits behind a number changes from frame to frame, and white
+/// text over a bright explosion is unreadable at exactly the moment somebody
+/// wants to check it. The band behind the top of the screen helps and is not
+/// enough on its own, because the brightest thing on any frame is whatever
+/// just died. A pill brings its own background with it.
+class _HudPill extends StatelessWidget {
+  const _HudPill({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: Metrics.hudPillHeight,
+      padding: const EdgeInsets.symmetric(horizontal: 11),
+      decoration: ShapeDecoration(
+        shape: novaShape(
+          edge: Palette.panelEdge,
+          width: Metrics.hudPillEdge,
+          bevel: Metrics.hudPillRound,
+        ),
+        color: Palette.panelFillLow,
+      ),
+      child: child,
+    );
+  }
+}
+
+/// Score and coins, in one pill.
+///
+/// One pill rather than two, because they are the two halves of the same
+/// running tally and because two pills plus the objective do not fit across a
+/// 320 wide phone once the score reaches six figures.
+class _TallyPill extends StatelessWidget {
+  const _TallyPill({required this.game});
+
+  final NovaGame game;
+
+  @override
+  Widget build(BuildContext context) {
+    return _HudPill(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: ValueListenableBuilder<int>(
+              valueListenable: game.scoreNotifier,
+              builder: (context, score, _) => Text(
+                'SCORE $score',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppType.hudSmall,
+              ),
+            ),
+          ),
+          const SizedBox(width: 9),
+          // A rule between them, so the two numbers do not read as one.
+          const SizedBox(
+            height: 13,
+            child: VerticalDivider(
+              width: Metrics.hudPillEdge,
+              thickness: Metrics.hudPillEdge,
+              color: Palette.panelEdge,
+            ),
+          ),
+          const SizedBox(width: 9),
+          // Big enough to recognise. At the 12 it was, the coin was four
+          // pixels of gold and read as a full stop.
+          const Icon(Icons.monetization_on, size: 15, color: Palette.coin),
+          const SizedBox(width: 5),
+          ValueListenableBuilder<int>(
+            valueListenable: game.coinsNotifier,
+            builder: (context, coins, _) => Text(
+              '$coins',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppType.hudSmall.copyWith(color: Palette.uiText),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Which level this is, as the one readout that names where you are.
+///
+/// Taller than the others and sitting on a ledge, because it is the heading of
+/// the screen rather than a counter on it.
+class _LevelPill extends StatelessWidget {
+  const _LevelPill({required this.game});
+
+  final NovaGame game;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: Metrics.ledgeDepthSmall),
+          child: Container(
+            height: Metrics.hudLevelPillHeight,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: ShapeDecoration(
+              shape: novaShape(
+                edge: Palette.panelEdge,
+                bevel: Metrics.hudLevelPillHeight / 2,
+              ),
+              gradient: const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Palette.panelFill, Palette.panelFillLow],
+              ),
+              shadows: novaLedge(
+                Palette.panelLedge,
+                depth: Metrics.ledgeDepthSmall,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ValueListenableBuilder<int>(
+                  valueListenable: game.levelNotifier,
+                  builder: (context, level, _) =>
+                      Text('LEVEL $level', style: AppType.hud),
+                ),
+                // The difficulty, and only when it is not the default. It used
+                // to be run on to the level number behind two spaces, which
+                // made one string out of two separate facts and left the pair
+                // of them looking like a typesetting mistake.
+                if (game.progress.difficulty != Difficulty.medium) ...[
+                  const SizedBox(width: 9),
+                  Text(
+                    DifficultyTuning.labelOf(game.progress.difficulty),
+                    style: AppType.hudSmall.copyWith(
+                      color: Palette.uiTextSoft,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        // Under the pill rather than inside it, so a modifier arriving does
+        // not change the width of the thing naming the level.
+        ValueListenableBuilder<String>(
+          valueListenable: game.modifierNotifier,
+          builder: (context, modifier, _) {
+            if (modifier.isEmpty) {
+              return const SizedBox.shrink();
+            }
+            return Text(
+              modifier,
+              style: AppType.hudSmall.copyWith(color: Palette.uiAccentWarm),
+            );
+          },
         ),
       ],
     );
@@ -241,6 +367,8 @@ class _Objective extends StatelessWidget {
               wave.current > wave.total
                   ? 'WAVE ${wave.current}'
                   : 'WAVE ${wave.current}/${wave.total}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: AppType.hudSmall,
             ),
           );
@@ -249,6 +377,8 @@ class _Objective extends StatelessWidget {
           valueListenable: game.survivalNotifier,
           builder: (context, seconds, _) => Text(
             seconds >= 0 ? '$objective ${seconds.ceil()}' : objective,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: AppType.hudSmall.copyWith(color: Palette.uiAccentWarm),
           ),
         );

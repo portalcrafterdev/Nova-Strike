@@ -512,6 +512,18 @@ class Metrics {
   /// armour bars above the play area.
   static const double hudBandBossExtra = 84;
 
+  /// The readout pills across the top of the play area.
+  ///
+  /// Shorter than the 46 the menu uses and outlined at 2 rather than 3: these
+  /// sit over the game rather than on a page of their own, and a menu weight
+  /// outline at this height closes the pill up until it reads as a solid bar.
+  static const double hudPillHeight = 30;
+  static const double hudPillRound = 15;
+  static const double hudPillEdge = 2;
+
+  /// The level pill, which is the one readout that names where you are.
+  static const double hudLevelPillHeight = 38;
+
   /// How opaque the solid part of that band is. Enough to read white text over
   /// a red enemy, not so much that the enemy disappears behind it.
   static const double hudBandAlpha = 0.72;
