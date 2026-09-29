@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 
@@ -6,6 +8,8 @@ import '../../app.dart';
 import '../../audio/sfx.dart';
 import '../../game/nova_game.dart';
 import '../../theme/palette.dart';
+import '../../tutorial/flight_tutorial.dart';
+import '../../tutorial/tutorial_controller.dart';
 import '../overlays/hud.dart';
 import '../overlays/pause_overlay.dart';
 import 'game_over_sheet.dart';
@@ -34,6 +38,19 @@ class GameScreen extends StatefulWidget {
 class _GameScreenState extends State<GameScreen> {
   NovaGame? _game;
 
+  final FlightTutorialTargets _targets = FlightTutorialTargets.wholeScreen();
+  late final TutorialController _tutorial = TutorialController(
+    steps: flightTutorialSteps(_targets),
+    flag: flightTutorialFlag,
+  );
+
+  /// True once there is a frame to hold. A game paused before it has rendered
+  /// anything shows black, because there is nothing to hold.
+  bool _teachable = false;
+
+  /// Runs while the game is let off the brake between lessons.
+  Timer? _breathe;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -47,7 +64,8 @@ class _GameScreenState extends State<GameScreen> {
       levelNumber: widget.levelNumber,
       endless: widget.endless,
       onQuit: _leave,
-    );
+    )..onSteer = _onSteer;
+    _armTutorial();
     // Fetch the extra life ad while the player still has a life to lose. A
     // rewarded ad takes seconds to arrive, and asking for it at the moment the
     // ship blows up means the offer is not there when the sheet opens.
@@ -63,9 +81,72 @@ class _GameScreenState extends State<GameScreen> {
     }
   }
 
+  /// Waits for the game to have something on screen before the lesson may
+  /// freeze it, then lets the launcher know.
+  Future<void> _armTutorial() async {
+    final game = _game;
+    if (game == null) {
+      return;
+    }
+    await game.loaded;
+    if (!mounted) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _teachable = true);
+      if (_tutorial.isRunning) {
+        game.paused = true;
+      }
+    });
+  }
+
+  /// The real steering, reported afterwards.
+  ///
+  /// Unconditional: an id that is not the current step is ignored and nothing
+  /// happens when no sequence is running, so this never asks whether a lesson
+  /// is up.
+  void _onSteer(double lane) {
+    final before = _tutorial.current?.id;
+    _tutorial.report(lane > 0 ? FlightLesson.up : FlightLesson.down);
+    if (_tutorial.current?.id != before) {
+      _letItPlay();
+    }
+  }
+
+  /// Off the brake for a moment, so the player sees what their own finger did.
+  ///
+  /// Done with the engine's own paused flag and a timer rather than by
+  /// branching the simulation's advance step: a conditional in the solver's
+  /// hot path is a cost paid forever for something that happens once per
+  /// install.
+  void _letItPlay() {
+    final game = _game;
+    if (game == null) {
+      return;
+    }
+    _breathe?.cancel();
+    game.paused = false;
+    if (!_tutorial.isRunning) {
+      return;
+    }
+    _breathe = Timer(const Duration(milliseconds: 700), () {
+      if (mounted && _tutorial.isRunning) {
+        game.paused = true;
+      }
+    });
+  }
+
   @override
   void dispose() {
+    _breathe?.cancel();
     _game?.livesNotifier.removeListener(_onLivesChanged);
+    _game?.onSteer = null;
+    // Put the brake back, or a game handed on somewhere else stays frozen.
+    _game?.paused = false;
+    _tutorial.dispose();
     super.dispose();
   }
 
@@ -94,18 +175,33 @@ class _GameScreenState extends State<GameScreen> {
           _leave();
         }
       },
-      child: Scaffold(
-        backgroundColor: Palette.spaceDeep,
-        body: GameWidget<NovaGame>(
-          game: game,
-          overlayBuilderMap: {
-            NovaGame.hudOverlay: (context, game) => Hud(game: game),
-            NovaGame.pauseOverlay: (context, game) => PauseOverlay(game: game),
-            NovaGame.gameOverOverlay: (context, game) =>
-                GameOverSheet(game: game, ads: AppScope.of(context).ads),
-            NovaGame.levelCompleteOverlay: (context, game) =>
-                LevelCompleteSheet(game: game, ads: AppScope.of(context).ads),
-          },
+      child: TutorialLauncher(
+        controller: _tutorial,
+        // Held off until there is a frame to freeze. didUpdateWidget picks it
+        // up the moment there is.
+        enabled: _teachable,
+        child: Scaffold(
+          backgroundColor: Palette.spaceDeep,
+          // The lesson cuts its hole around the whole play surface, because the
+          // finger may start its drag anywhere on the glass.
+          body: KeyedSubtree(
+            key: _targets.up,
+            child: GameWidget<NovaGame>(
+              game: game,
+              overlayBuilderMap: {
+                NovaGame.hudOverlay: (context, game) => Hud(game: game),
+                NovaGame.pauseOverlay: (context, game) =>
+                    PauseOverlay(game: game),
+                NovaGame.gameOverOverlay: (context, game) =>
+                    GameOverSheet(game: game, ads: AppScope.of(context).ads),
+                NovaGame.levelCompleteOverlay: (context, game) =>
+                    LevelCompleteSheet(
+                      game: game,
+                      ads: AppScope.of(context).ads,
+                    ),
+              },
+            ),
+          ),
         ),
       ),
     );

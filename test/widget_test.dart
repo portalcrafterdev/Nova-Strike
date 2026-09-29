@@ -25,7 +25,9 @@ import 'package:novastrike/ui/screens/main_menu.dart';
 import 'package:novastrike/ui/screens/settings_screen.dart';
 import 'package:novastrike/ui/screens/upgrade_screen.dart';
 import 'package:novastrike/theme/palette.dart';
+import 'package:novastrike/tutorial/tutorial_controller.dart';
 import 'package:novastrike/ui/widgets/menu_parts.dart';
+import 'package:novastrike/ui/widgets/nova_button.dart';
 import 'package:novastrike/ui/widgets/result_parts.dart';
 import 'package:novastrike/ui/widgets/volume_slider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -49,6 +51,17 @@ Future<AppScope> scopeFor(Widget child) async {
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+    // Every one of these tests is about something other than the tutorial, and
+    // a scrim over the screen blocks the very taps they are making. Seeding
+    // the seen flag would not be enough on its own, because a sequence set to
+    // run every time never reads one.
+    TutorialController.debugDisabled = true;
+    TutorialController.debugStore = MemoryTutorialStore();
+  });
+
+  tearDown(() {
+    TutorialController.debugDisabled = false;
+    TutorialController.debugStore = null;
   });
 
   testWidgets('the main menu offers every way into the game', (tester) async {
@@ -74,6 +87,33 @@ void main() {
     // numbers at its ends rather than one sentence.
     expect(find.text('LEVEL 1'), findsOneWidget);
     expect(find.text('1500'), findsOneWidget);
+  });
+
+  testWidgets('the two ways into the game are the same size', (tester) async {
+    // They were written as two heights at the call site and drifted apart,
+    // which read as PLAY being swollen rather than as ENDLESS being the
+    // quieter one. What makes PLAY the main action is its colour and its
+    // glow, not being taller than the button under it.
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(await scopeFor(const MainMenu()));
+    await tester.pump();
+
+    final play = tester.getSize(find.widgetWithText(NovaButton, 'PLAY'));
+    final endless = tester.getSize(find.widgetWithText(NovaButton, 'ENDLESS'));
+
+    expect(
+      play.height,
+      endless.height,
+      reason: 'PLAY and ENDLESS are different heights',
+    );
+    expect(
+      play.width,
+      endless.width,
+      reason: 'PLAY and ENDLESS are different widths',
+    );
   });
 
   testWidgets('the map shows one chapter and pages between them', (

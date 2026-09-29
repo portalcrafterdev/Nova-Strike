@@ -580,6 +580,15 @@ class Metrics {
   /// Smallest comfortable target. Everything tappable is checked against it.
   static const double tapTarget = 56;
 
+  /// Height of a way into the game on the menu.
+  ///
+  /// One number for both of them. PLAY and ENDLESS started as two heights
+  /// written at the call site and drifted apart, which read as PLAY being
+  /// swollen rather than as ENDLESS being secondary. What makes PLAY the main
+  /// action is the amber fill and the glow, not being taller than its
+  /// neighbour.
+  static const double menuActionHeight = 70;
+
   /// The ship badge above the game name, and how much of it fills its box.
   static const double shipMarkSize = 132;
   static const double shipMarkFit = 92;

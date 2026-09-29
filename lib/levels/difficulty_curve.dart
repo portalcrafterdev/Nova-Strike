@@ -149,6 +149,13 @@ class Tuning {
 
   // Player.
   static const int playerLives = 3;
+
+  /// How far up or down the lane a drag has to travel before it is reported
+  /// as a deliberate move.
+  ///
+  /// Only the tutorial listens. Without a floor, the jitter of a thumb resting
+  /// on the glass would satisfy a lesson the player has not been taught yet.
+  static const double steerReportDistance = 26;
   static const double playerFollowLerp = 0.25;
 
   /// How far up the lane from the finger the ship flies, so the thumb never

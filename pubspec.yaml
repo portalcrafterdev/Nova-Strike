@@ -40,6 +40,7 @@ dependencies:
   vector_math: ^2.2.0
   games_services: ^5.3.0
   google_mobile_ads: ^9.1.0
+  lottie: ^3.6.1
 
 dev_dependencies:
   flutter_test:
@@ -68,6 +69,7 @@ flutter:
   assets:
     - assets/audio/sfx/
     - assets/audio/music/
+    - assets/lottie/
 
   # Both faces ship in the bundle rather than being fetched. The game is
   # offline, so a font that needs the network is a font that sometimes is not

@@ -105,6 +105,13 @@ class NovaGame extends FlameGame<NovaWorld> with HasCollisionDetection {
   /// Called when the player leaves the level from a sheet or the pause menu.
   final VoidCallback? onQuit;
 
+  /// Called while the player is steering, with how far up or down the lane the
+  /// ship has just been taken. Positive is forward, up the screen.
+  ///
+  /// Only the first run lesson listens. Nothing in the game reads it, and
+  /// gameplay does not change when it is null.
+  void Function(double lane)? onSteer;
+
   /// True for an endless run: levels roll into each other, nothing is saved
   /// until the run ends, and it ends when the lives do.
   final bool endless;
