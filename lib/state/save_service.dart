@@ -32,6 +32,14 @@ class SaveService {
   static const String keyShip = 'shipId';
   static const String keyShipsOwned = 'shipsOwned';
   static const String keyEndlessBest = 'endlessBest';
+
+  /// The best single run, campaign or endless.
+  ///
+  /// Kept apart from [keyEndlessBest], which is only ever an endless run. This
+  /// one is what the sheet at the end of a lost level compares against, and a
+  /// campaign score has nothing to measure itself by without it.
+  static const String keyBestScore = 'bestScore';
+
   static const String keyDifficulty = 'difficulty';
 
   /// Running totals that only ever go up, kept for the achievements.
@@ -153,6 +161,12 @@ class SaveService {
     await _prefs?.setInt(keyEndlessBest, score);
   }
 
+  int loadBestScore() => _prefs?.getInt(keyBestScore) ?? 0;
+
+  Future<void> saveBestScore(int score) async {
+    await _prefs?.setInt(keyBestScore, score);
+  }
+
   AudioSettings loadAudioSettings() {
     final prefs = _prefs;
     if (prefs == null) {
@@ -272,6 +286,7 @@ class SaveService {
     await prefs.remove(keyShip);
     await prefs.remove(keyShipsOwned);
     await prefs.remove(keyEndlessBest);
+    await prefs.remove(keyBestScore);
   }
 
   static Map<String, int> decodeUpgrades(String? raw) {

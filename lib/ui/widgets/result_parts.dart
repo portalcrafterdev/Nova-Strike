@@ -368,6 +368,101 @@ class _Star extends StatelessWidget {
   }
 }
 
+/// A row of small boxes, each a label over a number.
+///
+/// Used where a result has two or three figures worth comparing against each
+/// other. A panel of lines is for reading down; this is for reading across.
+class StatBoxRow extends StatelessWidget {
+  const StatBoxRow({
+    required this.boxes,
+    required this.animation,
+    super.key,
+  });
+
+  final List<StatBox> boxes;
+  final Animation<double> animation;
+
+  @override
+  Widget build(BuildContext context) {
+    // Stretch would ask for infinite height inside a scroll view, and the
+    // boxes have to be the same height or the row looks broken when one
+    // number wraps. IntrinsicHeight is the one that gives both, and three
+    // boxes is far too few for its cost to matter.
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < boxes.length; i++) ...[
+            if (i > 0) const SizedBox(width: 10),
+            Expanded(
+              child: Reveal(
+                animation: animation,
+                begin:
+                    ResultTiming.panelBegin + Duration(milliseconds: 110 * i),
+                lift: 10,
+                child: _Box(box: boxes[i], animation: animation),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// One box in a [StatBoxRow].
+class StatBox {
+  const StatBox({required this.label, required this.count, this.tint});
+
+  final String label;
+  final int count;
+
+  /// Overrides the colour of the number, for the one that is worth a glance.
+  final Color? tint;
+}
+
+class _Box extends StatelessWidget {
+  const _Box({required this.box, required this.animation});
+
+  final StatBox box;
+  final Animation<double> animation;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: ShapeDecoration(
+        shape: novaShape(edge: Palette.panelEdge, bevel: 20),
+        color: Palette.panelFill,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              box.label,
+              maxLines: 1,
+              style: AppType.hudSmall.copyWith(letterSpacing: 1),
+            ),
+            const SizedBox(height: 2),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: CountUp(
+                value: box.count,
+                animation: animation,
+                style: AppType.hud.copyWith(
+                  fontSize: 23,
+                  color: box.tint ?? Palette.uiText,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// One line inside a [ResultPanel].
 class ResultRow {
   const ResultRow({

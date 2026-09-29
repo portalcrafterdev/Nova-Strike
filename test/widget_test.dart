@@ -76,6 +76,51 @@ void main() {
     expect(find.text('1500'), findsOneWidget);
   });
 
+  testWidgets('losing says how far you got, not that you lost', (
+    tester,
+  ) async {
+    // The sheet a child sees most often. Told how close they came, they go
+    // again; told they failed, they put the phone down. The wave is the unit
+    // the heads up display was already counting in a second earlier.
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+
+    final save = SaveService();
+    await save.init();
+    final game =
+        NovaGame(
+            audio: AudioController(save),
+            progress: PlayerProgress(save),
+            levelNumber: 4,
+          )
+          ..spec = LevelGenerator.generate(4)
+          ..waveNotifier.value = const WaveProgress(3, 4);
+
+    await tester.pumpWidget(
+      MaterialApp(home: Material(child: GameOverSheet(game: game))),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('wave 3 of 4'), findsOneWidget);
+    expect(find.text('TRY AGAIN'), findsOneWidget);
+  });
+
+  test('a best score only ever goes up', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final save = SaveService();
+    await save.init();
+    final progress = PlayerProgress(save)..load();
+
+    await progress.recordScore(900);
+    expect(progress.bestScore, 900);
+    // A worse run must not overwrite it, or the number stops meaning best.
+    await progress.recordScore(120);
+    expect(progress.bestScore, 900);
+    await progress.recordScore(1500);
+    expect(progress.bestScore, 1500);
+  });
+
   testWidgets('the result sheet arrives rather than appears', (tester) async {
     // The whole sheet is the reward for the level. Printed in its finished
     // state the instant it opens, it reads as a receipt.
@@ -578,7 +623,7 @@ void main() {
     final sheets = <Widget, List<String>>{
       PauseOverlay(game: game): ['RESUME', 'RESTART', 'HOME'],
       LevelCompleteSheet(game: game): ['NEXT LEVEL', 'REPLAY', 'HOME'],
-      GameOverSheet(game: game): ['RETRY', 'MENU'],
+      GameOverSheet(game: game): ['TRY AGAIN', 'HOME'],
     };
 
     for (final entry in sheets.entries) {

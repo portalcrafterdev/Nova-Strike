@@ -521,6 +521,10 @@ class NovaGame extends FlameGame<NovaWorld> with HasCollisionDetection {
       for (final badge in AchievementCatalog.earnedIn(progress))
         if (!_badgesBefore.contains(badge.id)) badge,
     ];
+    // Both ways out of a level come through here, so the best run is recorded
+    // whether it ended in a win or in running out of lives. A player's best is
+    // usually a run they lost.
+    await progress.recordScore(runScore);
   }
 
   /// The score to show when a run ends: the level in a campaign run, the whole

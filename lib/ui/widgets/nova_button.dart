@@ -181,7 +181,7 @@ class NovaButton extends StatelessWidget {
                 ),
                 child: Padding(
                   padding: EdgeInsets.symmetric(
-                    horizontal: compact ? 12 : 20,
+                    horizontal: compact ? 8 : 20,
                     vertical: 14,
                   ),
                   child: Row(
@@ -189,8 +189,8 @@ class NovaButton extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       if (icon != null) ...[
-                        Icon(icon, size: compact ? 20 : 22, color: ink),
-                        SizedBox(width: compact ? 8 : 10),
+                        Icon(icon, size: compact ? 18 : 22, color: ink),
+                        SizedBox(width: compact ? 6 : 10),
                       ],
                       // Flexible, so a pair of buttons sharing a row on a
                       // narrow screen shrinks the label rather than

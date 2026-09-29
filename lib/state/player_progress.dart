@@ -178,6 +178,7 @@ class PlayerProgress extends ChangeNotifier {
     }
     _loadShips();
     _endlessBest = _save.loadEndlessBest();
+    _bestScore = _save.loadBestScore();
     notifyListeners();
   }
 
@@ -284,6 +285,7 @@ class PlayerProgress extends ChangeNotifier {
     _ship = ShipCatalog.starter;
     _owned = {ShipCatalog.starter};
     _endlessBest = 0;
+    _bestScore = 0;
     _lifetime.clear();
     await _save.clearProgress();
     notifyListeners();
@@ -294,10 +296,17 @@ class PlayerProgress extends ChangeNotifier {
   ShipId _ship = ShipCatalog.starter;
   Set<ShipId> _owned = {ShipCatalog.starter};
   int _endlessBest = 0;
+  int _bestScore = 0;
 
   ShipId get shipId => _ship;
   ShipDef get ship => ShipCatalog.of(_ship);
   int get endlessBest => _endlessBest;
+
+  /// The best single run, campaign or endless.
+  ///
+  /// Separate from [endlessBest], which only ever counts endless. A campaign
+  /// score with nothing to measure itself against is just a number.
+  int get bestScore => _bestScore;
 
   bool owns(ShipId id) => _owned.contains(id);
 
@@ -421,6 +430,17 @@ class PlayerProgress extends ChangeNotifier {
     }
     _endlessBest = score;
     await _save.saveEndlessBest(score);
+    notifyListeners();
+  }
+
+  /// Records a run's score against the lifetime best. Only a better one is
+  /// written, so this is safe to call at the end of every run either way.
+  Future<void> recordScore(int score) async {
+    if (score <= _bestScore) {
+      return;
+    }
+    _bestScore = score;
+    await _save.saveBestScore(score);
     notifyListeners();
   }
 
