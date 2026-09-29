@@ -25,6 +25,8 @@ import 'package:novastrike/ui/screens/main_menu.dart';
 import 'package:novastrike/ui/screens/settings_screen.dart';
 import 'package:novastrike/ui/screens/upgrade_screen.dart';
 import 'package:novastrike/theme/palette.dart';
+import 'package:novastrike/tutorial/hand_indicator.dart';
+import 'package:novastrike/tutorial/menu_tutorial.dart';
 import 'package:novastrike/tutorial/tutorial_controller.dart';
 import 'package:novastrike/ui/widgets/menu_parts.dart';
 import 'package:novastrike/ui/widgets/nova_button.dart';
@@ -87,6 +89,45 @@ void main() {
     // numbers at its ends rather than one sentence.
     expect(find.text('LEVEL 1'), findsOneWidget);
     expect(find.text('1500'), findsOneWidget);
+  });
+
+  testWidgets('every coach mark on the menu has something to point at', (
+    tester,
+  ) async {
+    TutorialController.debugDisabled = false;
+    TutorialController.debugStore = MemoryTutorialStore();
+    // A key declared in the targets but never attached to a widget leaves the
+    // sequence stalled on that step: the overlay finds no box to measure, so
+    // it shows nothing at all and waits for a frame that will not come. It
+    // throws nothing and looks, on the device, like the tutorial simply
+    // stopping halfway down the screen.
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(await scopeFor(const MainMenu()));
+    await tester.pump();
+
+    // Walked for real, one mark at a time. The hand is only drawn once the
+    // target has been measured, so its absence is exactly the symptom of a key
+    // that was never attached.
+    final steps = menuTutorialSteps(MenuTutorialTargets.forMenu());
+    expect(steps, hasLength(10));
+
+    for (var i = 0; i < steps.length; i++) {
+      expect(
+        find.byType(HandIndicator),
+        findsOneWidget,
+        reason: 'step "${steps[i].id}" has nothing to point at',
+      );
+      if (i == steps.length - 1) {
+        // The last one is PLAY, and pressing it would leave the menu.
+        break;
+      }
+      // Every step before it advances on a tap anywhere.
+      await tester.tapAt(const Offset(180, 8));
+      await tester.pump();
+    }
   });
 
   testWidgets('the two ways into the game are the same size', (tester) async {

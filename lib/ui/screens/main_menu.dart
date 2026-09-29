@@ -104,6 +104,7 @@ class _MainMenuState extends State<MainMenu> {
                             const Spacer(),
                             RoundIconButton(
                               icon: Icons.settings_rounded,
+                              key: _targets.settings,
                               label: 'Settings',
                               onPressed: () {
                                 scope.audio.play(Sfx.buttonTap);
@@ -128,6 +129,7 @@ class _MainMenuState extends State<MainMenu> {
                         ),
                         const SizedBox(height: 12),
                         ProgressPill(
+                          key: _targets.progress,
                           level: progress.highestLevelUnlocked,
                           total: Tuning.totalLevels,
                         ),
@@ -173,6 +175,7 @@ class _MainMenuState extends State<MainMenu> {
                         ),
                         const SizedBox(height: 10),
                         NovaButton(
+                          key: _targets.endless,
                           label: 'ENDLESS',
                           icon: Icons.all_inclusive_rounded,
                           tone: NovaTone.fun,
@@ -200,6 +203,7 @@ class _MainMenuState extends State<MainMenu> {
                           children: [
                             Expanded(
                               child: MenuTile(
+                                key: _targets.levels,
                                 icon: Icons.grid_view_rounded,
                                 label: 'LEVELS',
                                 tint: Palette.uiAccent,
@@ -214,6 +218,7 @@ class _MainMenuState extends State<MainMenu> {
                             const SizedBox(width: 10),
                             Expanded(
                               child: MenuTile(
+                                key: _targets.hangar,
                                 icon: Icons.rocket_launch_rounded,
                                 label: 'HANGAR',
                                 tint: Palette.shipInterceptor,
@@ -228,6 +233,7 @@ class _MainMenuState extends State<MainMenu> {
                             const SizedBox(width: 10),
                             Expanded(
                               child: MenuTile(
+                                key: _targets.upgrade,
                                 icon: Icons.arrow_upward_rounded,
                                 label: 'UPGRADE',
                                 tint: Palette.star,
@@ -245,6 +251,7 @@ class _MainMenuState extends State<MainMenu> {
                         // Signing in belongs next to who the player is, not
                         // behind a screen they have to think to open.
                         PlayGamesBar(
+                          key: _targets.profile,
                           games: scope.games,
                           onSignIn: () {
                             scope.audio.play(Sfx.buttonTap);
