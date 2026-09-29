@@ -76,6 +76,41 @@ void main() {
     expect(find.text('1500'), findsOneWidget);
   });
 
+  testWidgets('the map shows one chapter and pages between them', (
+    tester,
+  ) async {
+    // It used to scroll all hundred chapters at once, five levels across,
+    // which on a portrait phone left each level about twenty pixels wide.
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(await scopeFor(const LevelMap()));
+    await tester.pump();
+
+    expect(find.text('Chapter 1'), findsOneWidget);
+    expect(find.text('Sunrise Belt'), findsOneWidget);
+    expect(find.text('PLAY LEVEL 1'), findsOneWidget);
+    // Only this chapter's levels, not the next one's.
+    expect(find.text('16'), findsNothing);
+
+    await tester.tap(find.bySemanticsLabel('Next chapter'));
+    // Pumped rather than settled: the star field behind every menu drifts
+    // forever on purpose, so nothing wrapped in it ever comes to rest.
+    await tester.pump();
+
+    expect(find.text('Chapter 2'), findsOneWidget);
+    expect(find.text('Chapter 1'), findsNothing);
+    // Browsing ahead shows what is coming without pretending it is playable.
+    // On a fresh save every level here is still locked.
+    expect(find.text('PLAY LEVEL 16'), findsOneWidget);
+    expect(
+      find.byIcon(Icons.lock_rounded),
+      findsWidgets,
+      reason: 'a chapter the player has not reached shows as open',
+    );
+  });
+
   testWidgets('losing says how far you got, not that you lost', (
     tester,
   ) async {
