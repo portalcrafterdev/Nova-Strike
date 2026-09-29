@@ -116,6 +116,25 @@ class Tuning {
   static const double bossRepeatHpBonus = 0.06;
   static const double bossPhaseTwoThreshold = 0.66;
   static const double bossPhaseThreeThreshold = 0.33;
+
+  /// How many phases a boss fight has.
+  static const int bossPhases = 3;
+
+  /// Which phase a boss at this much health belongs in.
+  ///
+  /// Derived from the health rather than read off the boss, so the readout
+  /// and the behaviour cannot disagree: the boss decides its own phase from
+  /// the same two thresholds, and a second source of truth here is a bug
+  /// waiting for the frame where one updates before the other.
+  static int bossPhaseAt(double fraction) {
+    if (fraction <= bossPhaseThreeThreshold) {
+      return 3;
+    }
+    if (fraction <= bossPhaseTwoThreshold) {
+      return 2;
+    }
+    return 1;
+  }
   static const double bossPhaseSpeedStep = 0.25;
   static const double bossPhaseFireStep = 0.15;
   static const double bossEntryDuration = 2.0;

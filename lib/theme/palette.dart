@@ -489,13 +489,17 @@ class Metrics {
   static const double slowMotionScale = 0.35;
   static const double slowMotionDuration = 0.7;
   static const double invulnerabilityBlinkRate = 12;
-  static const double bossHealthBarHeight = 10;
+  /// The boss's own bar. Thick enough to read as a gauge: at ten pixels it
+  /// was one more thin line on a display that already had several.
+  static const double bossHealthBarHeight = 22;
 
-  /// The pod and shield bars above it. Thinner than the health bar, because
+  /// The pod and shield bars under it. Thinner than the health bar, because
   /// they are what stands in front of the fight rather than the fight itself.
-  static const double bossArmourBarHeight = 5;
-  static const double bossArmourLabelWidth = 52;
-  static const double bossArmourLabelSize = 9;
+  ///
+  /// They lost their written labels to a pair of icons, which is what let them
+  /// sit side by side on one line instead of stacking and pushing the play
+  /// area down every time a boss had both.
+  static const double bossArmourBarHeight = 7;
   static const double bossHealthBarTop = 24;
 
   /// Height of the dark band drawn behind the top of the display, below the
@@ -503,6 +507,10 @@ class Metrics {
   /// the score and the level number sit, so without a band they fly straight
   /// across the text and neither one reads.
   static const double hudBandHeight = 104;
+
+  /// Added to it during a boss fight, which puts a name, a phase and up to two
+  /// armour bars above the play area.
+  static const double hudBandBossExtra = 84;
 
   /// How opaque the solid part of that band is. Enough to read white text over
   /// a red enemy, not so much that the enemy disappears behind it.

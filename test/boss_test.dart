@@ -292,33 +292,70 @@ void hudTests() {
       await tester.pump();
     }
 
-    // A shielded boss with pods still standing shows both rows.
+    // The bars carry icons rather than written labels now, which is what let
+    // them sit side by side instead of stacking. They are found by the
+    // description a screen reader would announce.
+    final pods = find.bySemanticsLabel('Side pods');
+    final shield = find.bySemanticsLabel('Shield');
+
+    // A shielded boss with pods still standing shows both.
     game.bossNameNotifier.value = 'AEGIS WARDEN';
     game.bossHealthNotifier.value = 1;
     game.bossArmourNotifier.value = const BossArmour(shield: 0.8, pods: 0.5);
     await show();
     expect(find.text('AEGIS WARDEN'), findsOneWidget);
-    expect(find.text('PODS'), findsOneWidget);
-    expect(find.text('SHIELD'), findsOneWidget);
+    expect(pods, findsOneWidget);
+    expect(shield, findsOneWidget);
+    expect(find.text('PHASE 1 OF 3'), findsOneWidget);
 
-    // Pods gone, arc still up: only the arc is left in front of the core.
+    // Pods broken, arc still up. The empty bar stays on screen: a row that
+    // vanishes mid fight shifts everything under it, and a visibly broken
+    // layer is the clearest signal there is that the shots are getting past.
     game.bossArmourNotifier.value = const BossArmour(shield: 0.4, pods: 0);
     await tester.pump();
-    expect(find.text('PODS'), findsNothing);
-    expect(find.text('SHIELD'), findsOneWidget);
+    expect(pods, findsOneWidget);
+    expect(shield, findsOneWidget);
 
-    // Nothing left in front of it, so the health bar is the whole story and
-    // the display must not keep rows for armour that is gone.
-    game.bossArmourNotifier.value = const BossArmour(shield: 0, pods: 0);
-    await tester.pump();
-    expect(find.text('PODS'), findsNothing);
-    expect(find.text('SHIELD'), findsNothing);
-    expect(find.text('AEGIS WARDEN'), findsOneWidget);
-
-    // A boss with no armour at all never grows the rows.
+    // A boss whose archetype has neither never grows the row at all. That is
+    // the difference between empty and absent, and it is the one the display
+    // has to get right.
     game.bossArmourNotifier.value = BossArmour.none;
     await tester.pump();
-    expect(find.text('PODS'), findsNothing);
-    expect(find.text('SHIELD'), findsNothing);
+    expect(pods, findsNothing);
+    expect(shield, findsNothing);
+    expect(find.text('AEGIS WARDEN'), findsOneWidget);
+  });
+
+  testWidgets('the boss bar counts the phase off its own health', (
+    tester,
+  ) async {
+    // Two sources of truth for the phase is a bug waiting for the frame where
+    // one updates before the other, so the readout is derived from the same
+    // thresholds the boss itself switches on.
+    final save = SaveService();
+    await save.init();
+    final game = NovaGame(
+      audio: AudioController(save),
+      progress: PlayerProgress(save),
+      levelNumber: bossLevelFor(3),
+    )..spec = LevelGenerator.generate(bossLevelFor(3));
+
+    game.bossNameNotifier.value = 'AEGIS WARDEN';
+    game.bossArmourNotifier.value = BossArmour.none;
+
+    for (final step in <List<Object>>[
+      [1.0, 'PHASE 1 OF 3'],
+      [Tuning.bossPhaseTwoThreshold, 'PHASE 2 OF 3'],
+      [0.5, 'PHASE 2 OF 3'],
+      [Tuning.bossPhaseThreeThreshold, 'PHASE 3 OF 3'],
+      [0.02, 'PHASE 3 OF 3'],
+    ]) {
+      game.bossHealthNotifier.value = step.first as double;
+      await tester.pumpWidget(
+        MaterialApp(home: Material(child: Hud(game: game))),
+      );
+      await tester.pump();
+      expect(find.text(step.last as String), findsOneWidget);
+    }
   });
 }

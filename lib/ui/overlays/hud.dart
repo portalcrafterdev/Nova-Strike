@@ -48,7 +48,7 @@ class _HudState extends State<Hud> with SingleTickerProviderStateMixin {
     return Stack(
       children: [
         _EdgeGlow(livesNotifier: game.livesNotifier, pulse: _pulse),
-        const _TopBand(),
+        _TopBand(game: game),
         SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -176,15 +176,27 @@ class _HudState extends State<Hud> with SingleTickerProviderStateMixin {
 /// text and neither the text nor the enemy reads. The band fades out toward
 /// the bottom so a ship never crosses a hard edge on its way in.
 class _TopBand extends StatelessWidget {
-  const _TopBand();
+  const _TopBand({required this.game});
+
+  final NovaGame game;
 
   @override
   Widget build(BuildContext context) {
     const shade = Palette.uiBackground;
     return IgnorePointer(
-      child: SizedBox(
-        width: double.infinity,
-        height: MediaQuery.paddingOf(context).top + Metrics.hudBandHeight,
+      // A boss adds a name, a phase and two more bars to the top of the
+      // screen, and the band has to grow with them. Left fixed, the bar sits
+      // on the boss's own hull and neither one reads.
+      child: ValueListenableBuilder<double>(
+        valueListenable: game.bossHealthNotifier,
+        builder: (context, health, child) => SizedBox(
+          width: double.infinity,
+          height:
+              MediaQuery.paddingOf(context).top +
+              Metrics.hudBandHeight +
+              (health >= 0 ? Metrics.hudBandBossExtra : 0),
+          child: child,
+        ),
         child: DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -301,51 +313,81 @@ class _BossBar extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            ValueListenableBuilder<String>(
-              valueListenable: game.bossNameNotifier,
-              builder: (context, name, _) => Text(
-                name.toUpperCase(),
-                textAlign: TextAlign.center,
-                style: AppType.hudSmall.copyWith(color: Palette.bossHealthBar),
-              ),
+            Row(
+              children: [
+                const Icon(
+                  Icons.workspace_premium_rounded,
+                  size: 20,
+                  color: Palette.star,
+                ),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: ValueListenableBuilder<String>(
+                    valueListenable: game.bossNameNotifier,
+                    builder: (context, name, _) => Text(
+                      name.toUpperCase(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppType.hud.copyWith(fontSize: 16),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Which phase, out of how many. A bar on its own says how much
+                // is left; this says how much harder it is about to get, and
+                // the two together are what make the fight readable.
+                Text(
+                  'PHASE ${Tuning.bossPhaseAt(health)} OF '
+                  '${Tuning.bossPhases}',
+                  style: AppType.hudSmall.copyWith(
+                    color: Palette.uiTextSoft,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 5),
-            // The layers in front of the core, each shown only while it is
-            // what the player's shots are going into. Without these the bar
-            // below sits at full through the whole opening of six of the ten
-            // fights and then drops all at once.
+            const SizedBox(height: 6),
+            _HealthBar(value: health),
+            const SizedBox(height: 6),
+            // The layers in front of the core. Without these the bar above
+            // sits at full through the whole opening of six of the ten fights
+            // and then drops all at once.
+            //
+            // Shown whenever the boss has the layer, even at empty, rather
+            // than only while it has something left. A row that appears and
+            // disappears mid fight moves everything under it, and a broken
+            // shield you can still see is the clearest possible signal that
+            // the shots are finally reaching the core.
             ValueListenableBuilder<BossArmour>(
               valueListenable: game.bossArmourNotifier,
-              builder: (context, armour, _) => Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (armour.hasPods && armour.pods > 0) ...[
-                    _ArmourBar(
-                      value: armour.pods,
-                      tint: Palette.bossCore,
-                      label: 'PODS',
-                    ),
-                    const SizedBox(height: 3),
+              builder: (context, armour, _) {
+                if (!armour.hasShield && !armour.hasPods) {
+                  return const SizedBox.shrink();
+                }
+                return Row(
+                  children: [
+                    if (armour.hasShield)
+                      Expanded(
+                        child: _ArmourBar(
+                          value: armour.shield,
+                          tint: Palette.bossShield,
+                          icon: Icons.shield_rounded,
+                          label: 'Shield',
+                        ),
+                      ),
+                    if (armour.hasShield && armour.hasPods)
+                      const SizedBox(width: 10),
+                    if (armour.hasPods)
+                      Expanded(
+                        child: _ArmourBar(
+                          value: armour.pods,
+                          tint: Palette.shipInterceptor,
+                          icon: Icons.battery_full_rounded,
+                          label: 'Side pods',
+                        ),
+                      ),
                   ],
-                  if (armour.hasShield && armour.shield > 0) ...[
-                    _ArmourBar(
-                      value: armour.shield,
-                      tint: Palette.bossShield,
-                      label: 'SHIELD',
-                    ),
-                    const SizedBox(height: 3),
-                  ],
-                ],
-              ),
-            ),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: health,
-                minHeight: Metrics.bossHealthBarHeight,
-                backgroundColor: Palette.bossHealthBack,
-                color: Palette.bossHealthBar,
-              ),
+                );
+              },
             ),
           ],
         );
@@ -354,45 +396,106 @@ class _BossBar extends StatelessWidget {
   }
 }
 
-/// A thin bar for one layer of boss armour, named so the player knows what
-/// they are chewing through rather than watching an anonymous second bar.
+/// The boss's own health, as the one heavy bar on the screen.
+///
+/// Thick, hard cornered at the ends and outlined, so it reads as a gauge
+/// rather than as one more thin line in a heads up display that already has
+/// several. Measured rather than laid out as a fraction, so the last sliver
+/// of a boss is still a visible sliver.
+class _HealthBar extends StatelessWidget {
+  const _HealthBar({required this.value});
+
+  final double value;
+
+  @override
+  Widget build(BuildContext context) {
+    final fraction = value.clamp(0.0, 1.0);
+    return Container(
+      height: Metrics.bossHealthBarHeight,
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: Palette.uiBackground,
+        borderRadius: BorderRadius.circular(Metrics.bossHealthBarHeight / 2),
+        border: Border.all(color: Palette.panelEdge, width: 2.5),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final filled = constraints.maxWidth * fraction;
+          return Align(
+            alignment: Alignment.centerLeft,
+            child: Container(
+              width: fraction <= 0 ? 0 : filled.clamp(6.0, constraints.maxWidth),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(
+                  Metrics.bossHealthBarHeight / 2,
+                ),
+                gradient: const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFFFF8FA8), Palette.bossHealthBar],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// A thin bar for one layer of boss armour, marked with an icon so the player
+/// knows what they are chewing through rather than watching an anonymous
+/// second bar.
 class _ArmourBar extends StatelessWidget {
   const _ArmourBar({
     required this.value,
     required this.tint,
+    required this.icon,
     required this.label,
   });
 
   final double value;
   final Color tint;
+  final IconData icon;
+
+  /// Read out by a screen reader, and the reason the icon can stay wordless.
   final String label;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        SizedBox(
-          width: Metrics.bossArmourLabelWidth,
-          child: Text(
-            label,
-            style: AppType.hudSmall.copyWith(
-              color: tint,
-              fontSize: Metrics.bossArmourLabelSize,
+    final fraction = value.clamp(0.0, 1.0);
+    return Semantics(
+      label: label,
+      value: '${(fraction * 100).round()} percent',
+      child: Row(
+        children: [
+          Icon(icon, size: 15, color: fraction > 0 ? tint : Palette.uiLocked),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Container(
+              height: Metrics.bossArmourBarHeight + 4,
+              padding: const EdgeInsets.all(1.5),
+              decoration: BoxDecoration(
+                color: Palette.uiBackground,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Palette.uiPanelLight, width: 2),
+              ),
+              child: LayoutBuilder(
+                builder: (context, constraints) => Align(
+                  alignment: Alignment.centerLeft,
+                  child: Container(
+                    width: constraints.maxWidth * fraction,
+                    decoration: BoxDecoration(
+                      color: tint,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
-        ),
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(3),
-            child: LinearProgressIndicator(
-              value: value,
-              minHeight: Metrics.bossArmourBarHeight,
-              backgroundColor: Palette.bossHealthBack,
-              color: tint,
-            ),
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
