@@ -33,8 +33,9 @@ import 'package:novastrike/ui/widgets/nova_button.dart';
 import 'package:novastrike/ui/widgets/result_parts.dart';
 import 'package:novastrike/ui/widgets/volume_slider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'game_services_test.dart' show FakeStore;
 
-Future<AppScope> scopeFor(Widget child) async {
+Future<AppScope> scopeFor(Widget child, {GameServicesController? games}) async {
   final save = SaveService();
   await save.init();
   final progress = PlayerProgress(save)..load();
@@ -44,7 +45,7 @@ Future<AppScope> scopeFor(Widget child) async {
     save: save,
     // The shipped id table, which is still placeholders, so no screen under
     // test ever reaches for a platform channel that has no answer here.
-    games: GameServicesController(platform: TargetPlatform.android),
+    games: games ?? GameServicesController(platform: TargetPlatform.android),
     ads: AdsController(backend: const NoAdsBackend()),
     child: MaterialApp(home: child),
   );
@@ -519,6 +520,80 @@ void main() {
         reason: '${badge.id} is missing from the list',
       );
     }
+  });
+
+  testWidgets('the menu offers a disconnect, and asks before doing it', (
+    tester,
+  ) async {
+    // A phone, not the 800 by 600 a widget test defaults to. The strip lives
+    // at the bottom of the menu and is off the glass entirely on a surface
+    // that shape, so the button is found in the tree and then tapped at
+    // coordinates that are not on the screen.
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+
+    final store = FakeStore();
+    final games = GameServicesController(
+      backend: store,
+      platform: TargetPlatform.android,
+    );
+    await tester.pumpWidget(await scopeFor(const MainMenu(), games: games));
+    await tester.pump();
+
+    final button = find.bySemanticsLabel('Disconnect from Google Play Games');
+
+    // Signed out there is nothing to end, and a button that does nothing must
+    // not be sitting next to the one inviting you to sign in.
+    expect(button, findsNothing, reason: 'it offers to disconnect from nobody');
+
+    await games.signIn();
+    await tester.pump();
+    expect(button, findsOneWidget);
+
+    await tester.tap(button);
+    // Two pumps, not one: the first starts the dialog's transition and the
+    // second lands it. Not pumpAndSettle, because the star field behind the
+    // menu drifts forever and would never settle.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    final dialog = find.byType(AlertDialog);
+    expect(dialog, findsOneWidget, reason: 'it disconnected without asking');
+
+    // The wording is load bearing. Play Games Services version 2 gives a game
+    // no way to sign anybody out, so a dialog that said it would sign them
+    // out would be making a promise the button cannot keep, and the player
+    // would go and find themselves still signed in.
+    expect(
+      find.descendant(
+        of: dialog,
+        matching: find.textContaining('does not sign you out'),
+      ),
+      findsOneWidget,
+      reason: 'the dialog claims more than the button can do',
+    );
+
+    await tester.tap(find.widgetWithText(TextButton, 'CANCEL'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(
+      games.isDisconnected,
+      isFalse,
+      reason: 'cancelling disconnected anyway',
+    );
+
+    await tester.tap(button);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.widgetWithText(TextButton, 'DISCONNECT'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(games.isDisconnected, isTrue);
+    // And the strip goes back to offering the way in, with nothing left to
+    // press that would end a connection there is no longer any of.
+    expect(button, findsNothing);
+    expect(find.text('Sign in'), findsOneWidget);
   });
 
   testWidgets('the settings screen has one slider per channel', (tester) async {

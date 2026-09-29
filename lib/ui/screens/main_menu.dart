@@ -263,6 +263,10 @@ class _MainMenuState extends State<MainMenu> {
                               scope.games.signIn();
                             }
                           },
+                          onDisconnect: () {
+                            scope.audio.play(Sfx.buttonTap);
+                            confirmDisconnect(context, scope.games);
+                          },
                           onOpenBadges: () {
                             scope.audio.play(Sfx.buttonTap);
                             Navigator.of(

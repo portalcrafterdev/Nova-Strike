@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../levels/level_spec.dart';
 import '../state/achievement_catalog.dart';
 import '../state/player_progress.dart';
+import '../state/save_service.dart';
 import 'game_services_backend.dart';
 import 'play_ids.dart';
 
@@ -43,6 +44,7 @@ enum GameServicesStatus {
 class GameServicesController extends ChangeNotifier {
   GameServicesController({
     this.backend = const StoreGameServices(),
+    this.save,
     PlayIds? ids,
     TargetPlatform? platform,
   }) : ids = ids ?? PlayIds.live,
@@ -68,6 +70,13 @@ class GameServicesController extends ChangeNotifier {
 
   final GameServicesBackend backend;
 
+  /// Where the disconnected choice is written down.
+  ///
+  /// Optional, because most of this class has nothing to remember between
+  /// runs and every test of the rest would otherwise have to build a save.
+  /// Without one, a disconnect lasts until the game is closed.
+  final SaveService? save;
+
   /// The board and badge ids this controller reports to.
   final PlayIds ids;
   final TargetPlatform _platform;
@@ -76,6 +85,7 @@ class GameServicesController extends ChangeNotifier {
   String? _playerName;
   String? _lastError;
   PlayerProgress? _watched;
+  bool _disconnected = false;
 
   /// The last values pushed, so a notify that only moved coins does not fire
   /// two calls at the store for nothing.
@@ -98,6 +108,14 @@ class GameServicesController extends ChangeNotifier {
   String get serviceName => isAndroid ? 'Google Play Games' : 'Game Center';
 
   bool get isSignedIn => _status == GameServicesStatus.signedIn;
+
+  /// Whether the player has told the game to stop using the store.
+  ///
+  /// Distinct from being signed out. Signed out is where everybody starts and
+  /// where a cancelled sign in leaves you, and the game is free to connect on
+  /// the next launch. This is a decision, and it is honoured until the player
+  /// signs in again on purpose.
+  bool get isDisconnected => _disconnected;
 
   /// Whether the boards and badges have real ids yet.
   ///
@@ -131,6 +149,15 @@ class GameServicesController extends ChangeNotifier {
   Future<void> init() async {
     if (!isSupported) {
       _set(GameServicesStatus.unsupported);
+      return;
+    }
+    // Checked before anything reaches the store. Play Games version 2 signs
+    // the player back in by itself, so asking it first and then deciding would
+    // mean a disconnected player is connected again for as long as it takes to
+    // read a preference, which is long enough to push a score.
+    _disconnected = save?.loadStoreDisconnected() ?? false;
+    if (_disconnected) {
+      _set(GameServicesStatus.signedOut);
       return;
     }
     final signedIn = await _guard(() => backend.isSignedIn(), fallback: false);
@@ -168,6 +195,38 @@ class GameServicesController extends ChangeNotifier {
       _set(GameServicesStatus.failed, error: error);
     }
     return false;
+  }
+
+  /// Stops the game using the store, and remembers that it was asked to.
+  ///
+  /// This is as far as a game is allowed to go. Play Games Services version 2
+  /// has no sign out call at all, and Game Center's account belongs to the
+  /// system rather than to any one game, so neither store can be made to
+  /// forget the player from in here. What this can do, and does, is stop the
+  /// game connecting: nothing is submitted, no name is shown, and the next
+  /// launch does not reach for the store. Signing the Google account itself
+  /// out is done in the Play Games app, and the wording the player is shown
+  /// before this runs says so rather than promising something it cannot do.
+  ///
+  /// Everything already sent stays sent. There is no call to take a score off
+  /// a leaderboard, and a badge cannot be locked again.
+  Future<void> disconnect() async {
+    if (!isSupported) {
+      return;
+    }
+    _disconnected = true;
+    _playerName = null;
+    _lastError = null;
+    // The high water marks go with it. They exist to stop the same number
+    // being sent twice in one session, and holding them across a disconnect
+    // would mean everything earned while away is silently never reported
+    // after signing back in.
+    _sentLevel = 0;
+    _sentStars = 0;
+    _sentBadges.clear();
+    _sentSteps.clear();
+    _set(GameServicesStatus.signedOut);
+    await save?.saveStoreDisconnected(true);
   }
 
   Future<void> showLeaderboards({LeaderboardId? board}) async {
@@ -304,6 +363,13 @@ class GameServicesController extends ChangeNotifier {
     _set(GameServicesStatus.signedIn);
     _playerName = name;
     notifyListeners();
+    // Signing in on purpose revokes an earlier disconnect. Cleared here rather
+    // than when the button is pressed, so backing out of the store's sheet
+    // leaves the earlier choice standing instead of quietly undoing it.
+    if (_disconnected) {
+      _disconnected = false;
+      await save?.saveStoreDisconnected(false);
+    }
     await report();
   }
 

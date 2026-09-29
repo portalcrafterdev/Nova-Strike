@@ -29,7 +29,7 @@ Future<void> main() async {
   // The store is the one thing here that is allowed to be slow, so it is
   // started rather than waited for. Nothing on the first screen needs its
   // answer, and a phone with no network must not sit on a black window.
-  final games = GameServicesController()..watch(progress);
+  final games = GameServicesController(save: save)..watch(progress);
   unawaited(games.init());
 
   // Same treatment, for the same reason. Starting the ad plugin reaches the

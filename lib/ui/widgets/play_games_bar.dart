@@ -17,6 +17,7 @@ class PlayGamesBar extends StatelessWidget {
     required this.onSignIn,
     required this.onOpenRanks,
     required this.onOpenBadges,
+    required this.onDisconnect,
     super.key,
   });
 
@@ -26,6 +27,9 @@ class PlayGamesBar extends StatelessWidget {
 
   /// Opens the achievements list, which is kept on the phone.
   final VoidCallback onOpenBadges;
+
+  /// Stops the game using the store. Asks first.
+  final VoidCallback onDisconnect;
 
   @override
   Widget build(BuildContext context) {
@@ -59,6 +63,24 @@ class PlayGamesBar extends StatelessWidget {
                 tint: Palette.uiAccent,
                 label: 'Rankings',
                 onPressed: onOpenRanks,
+              ),
+            ],
+            // Only once there is a connection to end. Signed out, this would
+            // be a button that does nothing, sitting next to the one that
+            // says to sign in.
+            //
+            // It is quiet on purpose: no tint of its own, so it does not read
+            // as a third thing worth pressing. The confirmation behind it is
+            // what makes a stray tap here harmless, which matters more on
+            // this screen than it did in the settings, because everything
+            // else on this strip acts immediately.
+            if (games.isSignedIn) ...[
+              const SizedBox(width: 8),
+              _SquareButton(
+                icon: Icons.link_off_rounded,
+                tint: Palette.uiTextDim,
+                label: 'Disconnect from ${games.serviceName}',
+                onPressed: onDisconnect,
               ),
             ],
           ],
@@ -197,5 +219,52 @@ class _SquareButton extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Asks before disconnecting, and disconnects if the answer is yes.
+///
+/// Lives next to the button rather than in the screen that mounts it, because
+/// what it says is the careful part. Play Games Services version 2 gives a game
+/// no way to sign anybody out, and Game Center's account belongs to the system,
+/// so wording this as a sign out would promise something the button cannot
+/// deliver: the player would go and look, find themselves still signed in, and
+/// reasonably conclude it was broken. It says what actually happens instead.
+Future<void> confirmDisconnect(
+  BuildContext context,
+  GameServicesController games,
+) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      backgroundColor: Palette.uiPanel,
+      title: Text('Disconnect', style: AppType.heading),
+      content: Text(
+        'Nova Strike will stop sending your levels, stars and badges to '
+        '${games.serviceName}, and will not connect again until you sign in '
+        'from this screen.\n\n'
+        'Your progress on this phone is not touched. Scores already on the '
+        'boards stay there. This does not sign you out of your '
+        '${games.isAndroid ? 'Google' : 'Apple'} account, which is done in '
+        'the ${games.isAndroid ? 'Play Games app' : 'Settings app'}.',
+        style: AppType.body,
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+          child: Text('CANCEL', style: AppType.body),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+          child: Text(
+            'DISCONNECT',
+            style: AppType.body.copyWith(color: Palette.bossHealthBar),
+          ),
+        ),
+      ],
+    ),
+  );
+  if (confirmed ?? false) {
+    await games.disconnect();
   }
 }
