@@ -359,16 +359,10 @@ class _LevelTile extends StatelessWidget {
                       end: Alignment.bottomCenter,
                       colors: unlocked
                           ? [tone.fill, tone.fillLow]
-                          : const [
-                              Palette.panelFillLow,
-                              Palette.panelFillLow,
-                            ],
+                          : const [Palette.panelFillLow, Palette.panelFillLow],
                     ),
                     shadows: [
-                      BoxShadow(
-                        color: unlocked ? tone.ledge : Palette.panelLedge,
-                        offset: const Offset(0, Metrics.ledgeDepth),
-                      ),
+                      ...novaLift(),
                       if (isNext)
                         const BoxShadow(
                           color: Palette.glow,
@@ -485,9 +479,8 @@ class _BossCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final level = chapter * Tuning.levelsPerChapter;
-    final name = BossCatalog
-        .archetypes[(chapter - 1) % Tuning.bossArchetypeCount]
-        .name;
+    final name =
+        BossCatalog.archetypes[(chapter - 1) % Tuning.bossArchetypeCount].name;
     final reached = progress.isUnlocked(level);
     final remaining = level - progress.highestLevelUnlocked;
     final shape = novaShape(edge: Palette.panelEdge, bevel: 24);
@@ -510,12 +503,7 @@ class _BossCard extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: Palette.uiPanelLight,
                     borderRadius: BorderRadius.circular(26),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Palette.panelLedge,
-                        offset: Offset(0, Metrics.ledgeDepthSmall),
-                      ),
-                    ],
+                    boxShadow: novaLift(depth: Metrics.liftDepthSmall),
                   ),
                   child: Icon(
                     Icons.workspace_premium_rounded,
@@ -639,12 +627,7 @@ class _Arrow extends StatelessWidget {
             decoration: ShapeDecoration(
               shape: shape,
               color: Palette.panelFill,
-              shadows: const [
-                BoxShadow(
-                  color: Palette.panelLedge,
-                  offset: Offset(0, Metrics.ledgeDepthSmall),
-                ),
-              ],
+              shadows: novaLift(depth: Metrics.liftDepthSmall),
             ),
             child: Material(
               color: Colors.transparent,

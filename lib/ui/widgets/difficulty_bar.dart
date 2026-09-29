@@ -83,62 +83,50 @@ class _Pill extends StatelessWidget {
     // where the main action is a solid amber slab, an outline does not read as
     // chosen; it reads as the one that has been switched off.
     final tone = selected ? NovaTone.go : NovaTone.quiet;
-    final shape = novaShape(
-      edge: selected ? null : Palette.panelEdge,
-      bevel: 18,
-    );
+    // No outline on either, and no band under either. What holds an unchosen
+    // setting off the sky is the light across its top, which the drawn edge
+    // was standing in for before there was any.
+    final shape = novaShape(bevel: 18);
     final ink = unlocked ? tone.ink : Palette.uiTextLocked;
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: Metrics.ledgeDepthSmall),
-      child: DecoratedBox(
-        decoration: ShapeDecoration(
+    return DecoratedBox(
+      decoration: ShapeDecoration(
+        shape: shape,
+        gradient: novaGloss(tone),
+        shadows: novaLift(depth: Metrics.liftDepthSmall),
+      ),
+      child: Opacity(
+        opacity: unlocked ? 1 : 0.55,
+        child: Material(
+          color: Colors.transparent,
           shape: shape,
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [tone.fill, tone.fillLow],
-          ),
-          shadows: [
-            BoxShadow(
-              color: tone.ledge,
-              offset: const Offset(0, Metrics.ledgeDepthSmall),
-            ),
-          ],
-        ),
-        child: Opacity(
-          opacity: unlocked ? 1 : 0.55,
-          child: Material(
-            color: Colors.transparent,
-            shape: shape,
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: unlocked ? onTap : null,
-              child: SizedBox(
-                height: 54,
-                // Scaled down rather than clipped. Three pills share the width
-                // of whatever screen the game is on, and the longest of the
-                // three labels does not fit on a narrow one.
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (!unlocked) ...[
-                          Icon(Icons.lock_rounded, size: 15, color: ink),
-                          const SizedBox(width: 5),
-                        ],
-                        Text(
-                          DifficultyTuning.labelOf(difficulty),
-                          style: AppType.button.copyWith(
-                            color: ink,
-                            fontSize: 17,
-                          ),
-                        ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: unlocked ? onTap : null,
+            child: SizedBox(
+              height: 54,
+              // Scaled down rather than clipped. Three pills share the width
+              // of whatever screen the game is on, and the longest of the
+              // three labels does not fit on a narrow one.
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (!unlocked) ...[
+                        Icon(Icons.lock_rounded, size: 15, color: ink),
+                        const SizedBox(width: 5),
                       ],
-                    ),
+                      Text(
+                        DifficultyTuning.labelOf(difficulty),
+                        style: AppType.button.copyWith(
+                          color: ink,
+                          fontSize: 17,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),

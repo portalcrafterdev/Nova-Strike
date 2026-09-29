@@ -74,15 +74,69 @@ class NovaTone {
   );
 }
 
-/// The solid band under a control.
+/// The shade a control casts on the sky below it.
 ///
-/// A flat offset with no blur. Blur it and it becomes a drop shadow, which
-/// says the button is floating above the screen; keep it hard and it reads as
-/// the side of a key, which says the button can be pushed down onto it.
-List<BoxShadow> novaLedge(Color color, {double depth = Metrics.ledgeDepth}) {
+/// There was a solid band here too, drawn as the side of a key. It has gone:
+/// a coloured slab under every button was a second edge competing with the
+/// light on top, and on the amber one it read as a dirty stripe rather than as
+/// depth. What is left is one soft shadow, which is what settles a control
+/// onto the sky instead of leaving it pasted against it.
+///
+/// The depth still shrinks while a button is held, so the shadow tightening is
+/// now what says the thing went down.
+List<BoxShadow> novaLift({double depth = Metrics.liftDepth}) {
   return [
-    BoxShadow(color: color, offset: Offset(0, depth)),
+    BoxShadow(
+      color: Palette.shadowAmbient,
+      offset: Offset(0, depth),
+      blurRadius: depth * 2.4,
+    ),
   ];
+}
+
+/// Where the light falls across a control, as fractions of its height, and
+/// how much of it lands at each.
+///
+/// One band lying over the top, fading out by the middle. The fade is the
+/// whole point: a highlight that stops somewhere reads as a shape drawn on the
+/// button rather than as light on it, which is what made the first attempt at
+/// this look cheap.
+const List<double> _glossStops = <double>[0, 0.38, 0.60, 0.92, 1];
+const List<double> _glossLight = <double>[0.62, 0.16, 0, 0, 0];
+
+/// How far the bottom edge is pulled toward the ledge colour.
+///
+/// Stands in for an inner shadow, which Flutter has no way to draw. Turning
+/// under at the bottom is what gives the face its thickness.
+const double _glossTurn = 0.28;
+
+/// A tone's fill with that light laid over it.
+///
+/// Worked out from the tone rather than written down as a list of colours,
+/// because every one of these has to be the tone's own fill lightened by the
+/// same amount. Hand mixed, they drift, and four buttons on one screen end up
+/// lit from four slightly different angles.
+LinearGradient novaGloss(NovaTone tone) {
+  return LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    stops: _glossStops,
+    colors: <Color>[
+      for (var i = 0; i < _glossStops.length; i++)
+        _litAt(tone, _glossStops[i], _glossLight[i]),
+    ],
+  );
+}
+
+Color _litAt(NovaTone tone, double at, double light) {
+  var body = Color.lerp(tone.fill, tone.fillLow, at)!;
+  if (at >= 1) {
+    body = Color.lerp(body, tone.ledge, _glossTurn)!;
+  }
+  if (light <= 0) {
+    return body;
+  }
+  return Color.alphaBlend(Colors.white.withValues(alpha: light), body);
 }
 
 /// The one button style used across every screen.
@@ -94,7 +148,7 @@ List<BoxShadow> novaLedge(Color color, {double depth = Metrics.ledgeDepth}) {
 ///
 /// The lit button is deliberately loud. A child scanning a screen should not
 /// have to work out which control moves the game forward.
-class NovaButton extends StatelessWidget {
+class NovaButton extends StatefulWidget {
   const NovaButton({
     required this.label,
     required this.onPressed,
@@ -130,36 +184,64 @@ class NovaButton extends StatelessWidget {
   final bool compact;
 
   @override
+  State<NovaButton> createState() => _NovaButtonState();
+}
+
+class _NovaButtonState extends State<NovaButton> {
+  /// True while a finger is on it.
+  bool _down = false;
+
+  void _setDown(bool down) {
+    if (_down != down) {
+      setState(() => _down = down);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final active = enabled && onPressed != null;
+    final label = widget.label;
+    final icon = widget.icon;
+    final primary = widget.primary;
+    final compact = widget.compact;
+    final height = widget.height;
+    final onPressed = widget.onPressed;
+
+    final active = widget.enabled && onPressed != null;
     final colours =
-        tone ?? (primary ? NovaTone.primary : NovaTone.quiet);
+        widget.tone ?? (primary ? NovaTone.primary : NovaTone.quiet);
     // A coloured fill carries its own edge. Only the violet panel needs a
     // drawn outline to separate it from the sky behind it.
     final edge = colours == NovaTone.quiet ? Palette.panelEdge : null;
-    final ledge = colours.ledge;
     final ink = colours.ink;
-    final shape = novaShape(edge: edge);
+    final shape = novaShape(edge: edge, bevel: Metrics.buttonRound);
+
+    // Held, the face drops and its shadow tightens under it. With the band
+    // gone the shadow is the only thing left saying how high the button is,
+    // so it has to do the work the band used to.
+    final held = _down && active;
+    final sink = held ? Metrics.pressSink : 0.0;
+    final depth = held ? Metrics.liftPressed : Metrics.liftDepth;
 
     return Opacity(
       opacity: active ? 1 : 0.45,
-      // The band sits under the button rather than behind it, so a column of
-      // buttons keeps an even gap instead of the ledges closing the gaps up.
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: Metrics.ledgeDepth),
-        child: DecoratedBox(
+      // Exactly as much room is kept below as the face can travel, and it is
+      // handed back at the top on the way down. Without that the button is
+      // shorter while held and everything under it jumps up the screen at the
+      // moment somebody is aiming at it.
+      child: AnimatedPadding(
+        duration: Metrics.pressFor,
+        curve: Curves.easeOut,
+        padding: EdgeInsets.only(top: sink, bottom: Metrics.pressSink - sink),
+        child: AnimatedContainer(
+          duration: Metrics.pressFor,
+          curve: Curves.easeOut,
           decoration: ShapeDecoration(
             shape: shape,
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [colours.fill, colours.fillLow],
-            ),
+            // The light comes off the tone rather than being mixed here, so
+            // every button on a screen is lit from the same angle.
+            gradient: novaGloss(colours),
             shadows: [
-              BoxShadow(
-                color: ledge,
-                offset: const Offset(0, Metrics.ledgeDepth),
-              ),
+              ...novaLift(depth: depth),
               if (colours == NovaTone.primary && active)
                 const BoxShadow(
                   color: Palette.glow,
@@ -174,6 +256,9 @@ class NovaButton extends StatelessWidget {
             clipBehavior: Clip.antiAlias,
             child: InkWell(
               onTap: active ? onPressed : null,
+              onTapDown: active ? (_) => _setDown(true) : null,
+              onTapUp: active ? (_) => _setDown(false) : null,
+              onTapCancel: active ? () => _setDown(false) : null,
               child: ConstrainedBox(
                 constraints: BoxConstraints(
                   minHeight: height ?? Metrics.tapTarget,
@@ -239,34 +324,22 @@ class NovaIconButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final shape = novaShape(edge: Palette.panelEdge, bevel: 18);
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: Metrics.ledgeDepthSmall),
-      child: DecoratedBox(
-        decoration: ShapeDecoration(
-          shape: shape,
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Palette.panelFill, Palette.panelFillLow],
-          ),
-          shadows: const [
-            BoxShadow(
-              color: Palette.panelLedge,
-              offset: Offset(0, Metrics.ledgeDepthSmall),
-            ),
-          ],
-        ),
-        child: Material(
-          color: Colors.transparent,
-          shape: shape,
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: onPressed,
-            child: SizedBox(
-              width: 48,
-              height: 48,
-              child: Icon(icon, size: 24, color: Palette.uiText),
-            ),
+    return DecoratedBox(
+      decoration: ShapeDecoration(
+        shape: shape,
+        gradient: novaGloss(NovaTone.quiet),
+        shadows: novaLift(depth: Metrics.liftDepthSmall),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        shape: shape,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onPressed,
+          child: SizedBox(
+            width: 48,
+            height: 48,
+            child: Icon(icon, size: 24, color: Palette.uiText),
           ),
         ),
       ),

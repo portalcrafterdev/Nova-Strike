@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:novastrike/theme/palette.dart';
 import 'package:novastrike/theme/typography.dart';
+import 'package:novastrike/ui/widgets/nova_button.dart';
 
 /// The WCAG contrast ratio between two opaque colours.
 ///
@@ -18,6 +19,8 @@ double _contrast(Color a, Color b) {
 }
 
 void main() {
+  buttonSurfaceTests();
+
   group('the look holds together', () {
     // Every pairing here is one where the text and the fill are set in
     // different files, so nothing at the call site would show the two had
@@ -141,6 +144,154 @@ void main() {
       // worse: it reads as though the colour means something.
       expect(AppType.display.color, isNull);
       expect(AppType.display.fontFamily, AppType.displayFamily);
+    });
+  });
+}
+
+/// The soft candy treatment: how a control is lit, and how it answers a
+/// finger. Both are easy to break without anything throwing, because a
+/// gradient that is wrong still paints and a button that changes size while
+/// held still works.
+void buttonSurfaceTests() {
+  group('the light on a control', () {
+    test('fades out down the face instead of stopping', () {
+      // A highlight that ends somewhere reads as a shape drawn on the button
+      // rather than as light falling on it. That was what made the first
+      // attempt at this look cheap, so it is checked rather than remembered.
+      for (final tone in const [
+        NovaTone.primary,
+        NovaTone.fun,
+        NovaTone.go,
+        NovaTone.quiet,
+      ]) {
+        final gloss = novaGloss(tone);
+        final stops = gloss.stops!;
+
+        // How much light each stop ADDS to the unlit fill, not how bright it
+        // ends up. The absolute brightness falls down the face whatever the
+        // light does, because the fill itself darkens, so measuring that
+        // cannot tell a fade from a flat band and passes either way.
+        final added = <double>[
+          for (var i = 0; i < stops.length; i++)
+            gloss.colors[i].computeLuminance() -
+                Color.lerp(tone.fill, tone.fillLow, stops[i])!
+                    .computeLuminance(),
+        ];
+
+        for (var i = 1; i < added.length; i++) {
+          expect(
+            added[i],
+            lessThanOrEqualTo(added[i - 1] + 1e-9),
+            reason:
+                'the light does not fade between stops ${i - 1} and $i, so '
+                'it is a band with a hard edge where it stops',
+          );
+        }
+        expect(
+          added.first,
+          greaterThan(0.02),
+          reason: 'the top of the face is not lit at all',
+        );
+        expect(
+          added[2],
+          closeTo(0, 1e-6),
+          reason: 'the light has not run out by the middle of the face',
+        );
+        expect(
+          gloss.colors.last.computeLuminance(),
+          lessThan(tone.fillLow.computeLuminance()),
+          reason: 'the bottom edge does not turn under, so the face is flat',
+        );
+      }
+    });
+
+    test('is what separates an unoutlined control from the sky', () {
+      // The menu's quiet controls lost their drawn edge, so the only thing
+      // left holding a tile off the background is the light on its top. Judged
+      // at the 3 to 1 the standard asks of a boundary that is not text: below
+      // that a button stops having a visible edge at all, and on a dim phone
+      // outdoors the menu becomes a set of labels floating on a starfield.
+      final top = novaGloss(NovaTone.quiet).colors.first;
+      for (final sky in const [Palette.uiBackground, Palette.spaceDeep]) {
+        expect(
+          _contrast(top, sky),
+          greaterThanOrEqualTo(3),
+          reason: 'an unoutlined control does not stand off the sky',
+        );
+      }
+    });
+
+    test('the shade under a control is violet, not black, and only one', () {
+      final shadows = novaLift();
+      // One shadow. There used to be a hard coloured slab under this, drawn
+      // as the side of a key; it competed with the light on top and on the
+      // amber button it read as a dirty stripe. Anything returned here with
+      // no blur is that slab coming back.
+      expect(shadows.length, 1, reason: 'a control has more than one shadow');
+      final ambient = shadows.single;
+      expect(
+        ambient.blurRadius,
+        greaterThan(0),
+        reason: 'the shade is hard edged, so it is a band and not a shadow',
+      );
+      // Grey over a saturated purple sky does not read as shade, it reads as
+      // dirt. The shade has to keep the blue in it.
+      expect(
+        ambient.color.b,
+        greaterThan(ambient.color.r),
+        reason: 'the shade has no colour in it',
+      );
+    });
+  });
+
+  group('a button being held', () {
+    testWidgets('travels down without moving anything around it', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: NovaButton(
+                label: 'PLAY',
+                primary: true,
+                onPressed: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final box = tester.getRect(find.byType(NovaButton));
+      final face = tester.getRect(find.text('PLAY'));
+
+      final finger = await tester.startGesture(face.center);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      // The gap the face leaves at the top is given back as padding. Without
+      // that the button is shorter while held, and every button under it
+      // jumps up the screen at the moment somebody is aiming at one.
+      expect(
+        tester.getRect(find.byType(NovaButton)),
+        box,
+        reason: 'the button changed size while held, shifting the screen',
+      );
+      expect(
+        tester.getRect(find.text('PLAY')).top,
+        greaterThan(face.top),
+        reason: 'the face did not travel down, so nothing looks pressed',
+      );
+
+      await finger.up();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(
+        tester.getRect(find.text('PLAY')).top,
+        closeTo(face.top, 0.01),
+        reason: 'the face stayed down after the finger left',
+      );
     });
   });
 }

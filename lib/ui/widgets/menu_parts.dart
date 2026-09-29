@@ -16,7 +16,7 @@ class MenuMetrics {
   static const double tileHeight = 72;
   static const double stripHeight = 62;
   static const double pillRound = 23;
-  static const double tileRound = 20;
+  static const double tileRound = 26;
 }
 
 /// A readout pill: an icon, then a number.
@@ -72,10 +72,7 @@ class RoundIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final shape = novaShape(
-      edge: Palette.panelEdge,
-      bevel: diameter / 2,
-    );
+    final shape = novaShape(bevel: diameter / 2);
     return Semantics(
       button: true,
       label: label,
@@ -83,7 +80,10 @@ class RoundIconButton extends StatelessWidget {
         width: diameter,
         height: diameter,
         child: DecoratedBox(
-          decoration: ShapeDecoration(shape: shape, color: Palette.panelFill),
+          decoration: ShapeDecoration(
+            shape: shape,
+            gradient: novaGloss(NovaTone.quiet),
+          ),
           child: Material(
             color: Colors.transparent,
             shape: shape,
@@ -105,11 +105,7 @@ class RoundIconButton extends StatelessWidget {
 /// discouraging and the bar is honest about the same thing without saying it
 /// out loud.
 class ProgressPill extends StatelessWidget {
-  const ProgressPill({
-    required this.level,
-    required this.total,
-    super.key,
-  });
+  const ProgressPill({required this.level, required this.total, super.key});
 
   final int level;
   final int total;
@@ -190,48 +186,42 @@ class MenuTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final shape = novaShape(
-      edge: Palette.panelEdge,
-      bevel: MenuMetrics.tileRound,
-    );
-    return Padding(
-      padding: const EdgeInsets.only(bottom: Metrics.ledgeDepthSmall),
-      child: DecoratedBox(
-        decoration: ShapeDecoration(
-          shape: shape,
-          color: Palette.panelFill,
-          shadows: const [
-            BoxShadow(
-              color: Palette.panelLedge,
-              offset: Offset(0, Metrics.ledgeDepthSmall),
-            ),
-          ],
-        ),
-        child: Material(
-          color: Colors.transparent,
-          shape: shape,
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: onPressed,
-            child: SizedBox(
-              height: MenuMetrics.tileHeight,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(icon, size: 24, color: tint),
-                  const SizedBox(height: 3),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      label,
-                      style: AppType.hudSmall.copyWith(
-                        color: Palette.uiTextSoft,
-                        letterSpacing: 0.6,
-                      ),
+    // No outline and no band under it. The light across the top is what lifts
+    // a tile off the sky now, and a drawn edge on top of that reads as a
+    // second edge competing with it.
+    final shape = novaShape(bevel: MenuMetrics.tileRound);
+    return DecoratedBox(
+      decoration: ShapeDecoration(
+        shape: shape,
+        // Lit the same way as every button beside it. A tile left flat next
+        // to a lit button does not read as quieter, it reads as unfinished.
+        gradient: novaGloss(NovaTone.quiet),
+        shadows: novaLift(depth: Metrics.liftDepthSmall),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        shape: shape,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onPressed,
+          child: SizedBox(
+            height: MenuMetrics.tileHeight,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 24, color: tint),
+                const SizedBox(height: 3),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    label,
+                    style: AppType.hudSmall.copyWith(
+                      color: Palette.uiTextSoft,
+                      letterSpacing: 0.6,
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),

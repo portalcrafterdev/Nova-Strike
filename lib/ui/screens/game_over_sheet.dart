@@ -199,10 +199,7 @@ class _GameOverSheetState extends State<GameOverSheet>
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     if (canWatch) ...[
-                      _ExtraLifeOffer(
-                        busy: _busy,
-                        onPressed: _watchForLife,
-                      ),
+                      _ExtraLifeOffer(busy: _busy, onPressed: _watchForLife),
                       const SizedBox(height: 12),
                     ],
                     Row(
@@ -303,7 +300,7 @@ class _ExtraLifeOffer extends StatelessWidget {
     final shape = novaShape(bevel: 26);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: Metrics.ledgeDepth),
+      padding: const EdgeInsets.only(bottom: Metrics.pressSink),
       child: Opacity(
         opacity: busy ? 0.6 : 1,
         child: DecoratedBox(
@@ -314,12 +311,7 @@ class _ExtraLifeOffer extends StatelessWidget {
               end: Alignment.bottomCenter,
               colors: [tone.fill, tone.fillLow],
             ),
-            shadows: const [
-              BoxShadow(
-                color: Color(0xFF6FBF44),
-                offset: Offset(0, Metrics.ledgeDepth),
-              ),
-            ],
+            shadows: novaLift(),
           ),
           child: Material(
             color: Colors.transparent,

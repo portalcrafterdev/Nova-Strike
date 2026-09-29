@@ -111,7 +111,9 @@ class _HudState extends State<Hud> with SingleTickerProviderStateMixin {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Flexible(child: _TallyPill(game: game)),
-                    Flexible(child: _HudPill(child: _Objective(game: game))),
+                    Flexible(
+                      child: _HudPill(child: _Objective(game: game)),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 6),
@@ -231,49 +233,37 @@ class _LevelPill extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: Metrics.ledgeDepthSmall),
-          child: Container(
-            height: Metrics.hudLevelPillHeight,
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            decoration: ShapeDecoration(
-              shape: novaShape(
-                edge: Palette.panelEdge,
-                bevel: Metrics.hudLevelPillHeight / 2,
-              ),
-              gradient: const LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Palette.panelFill, Palette.panelFillLow],
-              ),
-              shadows: novaLedge(
-                Palette.panelLedge,
-                depth: Metrics.ledgeDepthSmall,
-              ),
+        Container(
+          height: Metrics.hudLevelPillHeight,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: ShapeDecoration(
+            shape: novaShape(
+              edge: Palette.panelEdge,
+              bevel: Metrics.hudLevelPillHeight / 2,
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ValueListenableBuilder<int>(
-                  valueListenable: game.levelNotifier,
-                  builder: (context, level, _) =>
-                      Text('LEVEL $level', style: AppType.hud),
+            gradient: novaGloss(NovaTone.quiet),
+            shadows: novaLift(depth: Metrics.liftDepthSmall),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ValueListenableBuilder<int>(
+                valueListenable: game.levelNotifier,
+                builder: (context, level, _) =>
+                    Text('LEVEL $level', style: AppType.hud),
+              ),
+              // The difficulty, and only when it is not the default. It used
+              // to be run on to the level number behind two spaces, which
+              // made one string out of two separate facts and left the pair
+              // of them looking like a typesetting mistake.
+              if (game.progress.difficulty != Difficulty.medium) ...[
+                const SizedBox(width: 9),
+                Text(
+                  DifficultyTuning.labelOf(game.progress.difficulty),
+                  style: AppType.hudSmall.copyWith(color: Palette.uiTextSoft),
                 ),
-                // The difficulty, and only when it is not the default. It used
-                // to be run on to the level number behind two spaces, which
-                // made one string out of two separate facts and left the pair
-                // of them looking like a typesetting mistake.
-                if (game.progress.difficulty != Difficulty.medium) ...[
-                  const SizedBox(width: 9),
-                  Text(
-                    DifficultyTuning.labelOf(game.progress.difficulty),
-                    style: AppType.hudSmall.copyWith(
-                      color: Palette.uiTextSoft,
-                    ),
-                  ),
-                ],
               ],
-            ),
+            ],
           ),
         ),
         // Under the pill rather than inside it, so a modifier arriving does
@@ -469,9 +459,7 @@ class _BossBar extends StatelessWidget {
                 Text(
                   'PHASE ${Tuning.bossPhaseAt(health)} OF '
                   '${Tuning.bossPhases}',
-                  style: AppType.hudSmall.copyWith(
-                    color: Palette.uiTextSoft,
-                  ),
+                  style: AppType.hudSmall.copyWith(color: Palette.uiTextSoft),
                 ),
               ],
             ),
@@ -554,7 +542,9 @@ class _HealthBar extends StatelessWidget {
           return Align(
             alignment: Alignment.centerLeft,
             child: Container(
-              width: fraction <= 0 ? 0 : filled.clamp(6.0, constraints.maxWidth),
+              width: fraction <= 0
+                  ? 0
+                  : filled.clamp(6.0, constraints.maxWidth),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(
                   Metrics.bossHealthBarHeight / 2,

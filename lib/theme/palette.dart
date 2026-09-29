@@ -229,6 +229,13 @@ class Palette {
   /// it carries its own alpha rather than being faded at the call site.
   static const Color glow = Color(0x55FFC63D);
 
+  /// The soft shadow a control casts on the sky below its ledge.
+  ///
+  /// Deep violet rather than black. Black over this background does not read
+  /// as shade, it reads as dirt: the sky is a saturated purple, and an
+  /// unsaturated grey laid over it kills the colour instead of darkening it.
+  static const Color shadowAmbient = Color(0x8C0A0420);
+
   /// The two clouds behind a menu. Deeper than the ones the levels are flown
   /// through, because a menu holds still and can carry more colour than a
   /// screen with forty things moving on it.
@@ -369,6 +376,7 @@ class Metrics {
   static const double powerUpRadius = 8;
   static const double coinRadius = 5;
   static const double shieldRadius = 24;
+
   /// Half width of the column the beam burns, in world units. The look below
   /// is measured against it, so what is drawn and what is hit stay in step.
   static const double laserWidth = 9;
@@ -489,6 +497,7 @@ class Metrics {
   static const double slowMotionScale = 0.35;
   static const double slowMotionDuration = 0.7;
   static const double invulnerabilityBlinkRate = 12;
+
   /// The boss's own bar. Thick enough to read as a gauge: at ten pixels it
   /// was one more thin line on a display that already had several.
   static const double bossHealthBarHeight = 22;
@@ -577,17 +586,45 @@ class Metrics {
   /// This replaced a chamfer. A cut corner reads as machined, which is exactly
   /// the wrong note: the whole interface is meant to look moulded. All four
   /// corners, equally.
-  static const double panelRound = 22;
+  static const double panelRound = 26;
 
-  /// How deep the solid band under a button is.
+  /// How high a control floats above the sky, as the offset of the one soft
+  /// shadow it casts.
   ///
-  /// Drawn as an offset shadow with no blur, so it reads as the side of a
-  /// physical key rather than as a drop shadow. A button also gets this much
-  /// extra height so a column of them keeps its rhythm.
-  static const double ledgeDepth = 6;
+  /// There used to be a solid coloured band here as well, drawn as the side of
+  /// a key. It was removed: under every button it read as a second edge
+  /// fighting the light on top, and under the amber one it read as a stripe of
+  /// dirt.
+  static const double liftDepth = 7;
 
-  /// The same band under a small control, where the full depth looks clumsy.
-  static const double ledgeDepthSmall = 4;
+  /// The same, under a small control, where the full height looks clumsy.
+  static const double liftDepthSmall = 5;
+
+  /// What that drops to while the control is held.
+  ///
+  /// Not zero. The shadow closing right up is what says the button has been
+  /// pushed onto the screen, and a shadow that vanishes says it has left it.
+  static const double liftPressed = 2;
+
+  /// How far the face itself travels while held, and the room kept below it
+  /// for that to happen in.
+  ///
+  /// Small. With no band to sink onto, a long travel reads as the button
+  /// sliding rather than being pressed.
+  static const double pressSink = 4;
+
+  /// How long the face takes to travel down, and back.
+  ///
+  /// Short enough to feel like the button answered the finger rather than
+  /// thought about it.
+  static const Duration pressFor = Duration(milliseconds: 90);
+
+  /// The corner on a button.
+  ///
+  /// Rounder than a panel. A panel is a surface things sit on and wants a
+  /// quiet edge; a button is an object meant to be grabbed, and the fuller
+  /// corner is what makes it look grabbable.
+  static const double buttonRound = 30;
 
   /// Smallest comfortable target. Everything tappable is checked against it.
   static const double tapTarget = 56;
