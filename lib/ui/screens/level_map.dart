@@ -110,7 +110,11 @@ class _LevelMapState extends State<LevelMap> {
                                 crossAxisCount: _across,
                                 mainAxisSpacing: 12,
                                 crossAxisSpacing: 12,
-                                childAspectRatio: 0.82,
+                                // Square now. The cell used to be taller than
+                                // it was wide to leave a strip under each tile
+                                // for the stars, and that strip has moved
+                                // inside, so every row gets its height back.
+                                childAspectRatio: 1,
                               ),
                           itemBuilder: (context, index) {
                             final level = first + index;
@@ -311,7 +315,13 @@ class _ChapterBar extends StatelessWidget {
   }
 }
 
-/// One level: a big tile with its number, and its stars underneath.
+/// One level: a big tile carrying its number and its stars, both inside it.
+///
+/// The stars used to sit on a strip under the tile. Inside is better for two
+/// reasons. They belong to the level, and floating loose under a grid of
+/// fifteen it was never quite clear which tile a row of stars was for. And the
+/// strip cost every row of the grid its own height in space that showed
+/// nothing, which is what was squeezing the numbers.
 class _LevelTile extends StatelessWidget {
   const _LevelTile({
     required this.level,
@@ -343,122 +353,104 @@ class _LevelTile extends StatelessWidget {
       bevel: Metrics.tileBevel,
     );
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
+    return Stack(
+      clipBehavior: Clip.none,
       children: [
-        Expanded(
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: ShapeDecoration(
-                    shape: shape,
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: unlocked
-                          ? [tone.fill, tone.fillLow]
-                          : const [Palette.panelFillLow, Palette.panelFillLow],
-                    ),
-                    shadows: [
-                      ...novaLift(),
-                      if (isNext)
-                        const BoxShadow(
-                          color: Palette.glow,
-                          blurRadius: Metrics.panelGlowBlur,
-                          spreadRadius: -6,
-                        ),
-                    ],
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: ShapeDecoration(
+              shape: shape,
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: unlocked
+                    ? [tone.fill, tone.fillLow]
+                    : const [Palette.panelFillLow, Palette.panelFillLow],
+              ),
+              shadows: [
+                ...novaLift(),
+                if (isNext)
+                  const BoxShadow(
+                    color: Palette.glow,
+                    blurRadius: Metrics.panelGlowBlur,
+                    spreadRadius: -6,
                   ),
-                  child: Material(
-                    color: Colors.transparent,
-                    shape: shape,
-                    clipBehavior: Clip.antiAlias,
-                    child: InkWell(
-                      onTap: unlocked ? onTap : null,
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              shape: shape,
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: unlocked ? onTap : null,
+                child: Stack(
+                  children: [
+                    // Centred in the room left above the strip, not in
+                    // the tile, so the number does not sit on the stars.
+                    Positioned.fill(
+                      bottom: _stripHeight,
                       child: Center(
                         child: unlocked
                             ? Text(
                                 '$level',
                                 style: AppType.hud.copyWith(
-                                  fontSize: 28,
+                                  fontSize: 34,
                                   color: tone.ink,
                                 ),
                               )
                             : const Icon(
                                 Icons.lock_rounded,
-                                size: 28,
+                                size: 30,
                                 color: Palette.uiTextLocked,
                               ),
                       ),
                     ),
-                  ),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 8,
+                      child: _TileStrip(
+                        level: level,
+                        unlocked: unlocked,
+                        isNext: isNext,
+                        stars: stars,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              if (isNext)
-                Positioned(
-                  right: -6,
-                  top: -8,
-                  child: Container(
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Palette.panelFillFun,
-                      border: Border.all(color: Palette.uiBackground, width: 3),
-                    ),
-                    child: const Icon(
-                      Icons.play_arrow_rounded,
-                      size: 16,
-                      color: Palette.uiInkOnFun,
-                    ),
-                  ),
-                ),
-              if (kind == LevelKind.boss)
-                Positioned(
-                  left: -4,
-                  top: -8,
-                  child: Icon(
-                    Icons.workspace_premium_rounded,
-                    size: 24,
-                    color: unlocked ? Palette.star : Palette.uiTextLocked,
-                  ),
-                ),
-            ],
+            ),
           ),
         ),
-        const SizedBox(height: 6),
-        SizedBox(
-          height: 18,
-          child: isNext
-              ? Text(
-                  'NEXT UP',
-                  style: AppType.hudSmall.copyWith(
-                    color: Palette.panelFillLit,
-                    fontSize: 11,
-                  ),
-                )
-              : unlocked
-              ? Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    for (var i = 0; i < Tuning.starsPerLevel; i++)
-                      Icon(
-                        Icons.star_rounded,
-                        size: 16,
-                        color: i < stars ? Palette.star : Palette.starEmpty,
-                      ),
-                  ],
-                )
-              : Text(
-                  '$level',
-                  style: AppType.hudSmall.copyWith(
-                    color: Palette.uiTextLocked,
-                    fontSize: 13,
-                  ),
-                ),
-        ),
+        if (isNext)
+          Positioned(
+            right: -6,
+            top: -8,
+            child: Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Palette.panelFillFun,
+                border: Border.all(color: Palette.uiBackground, width: 3),
+              ),
+              child: const Icon(
+                Icons.play_arrow_rounded,
+                size: 16,
+                color: Palette.uiInkOnFun,
+              ),
+            ),
+          ),
+        if (kind == LevelKind.boss)
+          Positioned(
+            left: -4,
+            top: -8,
+            child: Icon(
+              Icons.workspace_premium_rounded,
+              size: 24,
+              color: unlocked ? Palette.star : Palette.uiTextLocked,
+            ),
+          ),
       ],
     );
   }
@@ -614,7 +606,7 @@ class _Arrow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final shape = novaShape(edge: Palette.panelEdge, bevel: 18);
+    final shape = novaShape(bevel: 18);
     return Opacity(
       opacity: onPressed == null ? 0.4 : 1,
       child: Semantics(
@@ -641,6 +633,68 @@ class _Arrow extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// How much of a level tile the strip along its bottom takes.
+const double _stripHeight = 22;
+
+/// The line inside the bottom of a level tile.
+///
+/// Three things share the slot because only one of them is ever true of a
+/// level at a time: what it is called while it is still locked, that it is the
+/// one to play next, or how it went when it was played.
+class _TileStrip extends StatelessWidget {
+  const _TileStrip({
+    required this.level,
+    required this.unlocked,
+    required this.isNext,
+    required this.stars,
+  });
+
+  final int level;
+  final bool unlocked;
+  final bool isNext;
+  final int stars;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!unlocked) {
+      // The number, which the lock above it cannot say. Bigger than the 13 it
+      // was under the tile, where it was small enough to have to be looked
+      // for rather than read.
+      return Text(
+        '$level',
+        textAlign: TextAlign.center,
+        style: AppType.hudSmall.copyWith(
+          color: Palette.uiTextLocked,
+          fontSize: 15,
+        ),
+      );
+    }
+    if (isNext) {
+      return Text(
+        'NEXT UP',
+        textAlign: TextAlign.center,
+        style: AppType.hudSmall.copyWith(
+          color: Palette.uiInkOnLit,
+          fontSize: 11,
+        ),
+      );
+    }
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        for (var i = 0; i < Tuning.starsPerLevel; i++)
+          Icon(
+            Icons.star_rounded,
+            size: 17,
+            // On a filled tile the empty star has to be darker than the tile
+            // rather than lighter, or it reads as earned.
+            color: i < stars ? Palette.star : Palette.uiInkOnGo,
+          ),
+      ],
     );
   }
 }

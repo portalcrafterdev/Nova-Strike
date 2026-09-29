@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:vector_math/vector_math_64.dart' show Vector3;
+import 'package:novastrike/game/render/camera.dart';
 import 'package:novastrike/theme/palette.dart';
 import 'package:novastrike/theme/typography.dart';
 import 'package:novastrike/ui/widgets/nova_button.dart';
@@ -20,6 +22,7 @@ double _contrast(Color a, Color b) {
 
 void main() {
   buttonSurfaceTests();
+  shipTravelTests();
 
   group('the look holds together', () {
     // Every pairing here is one where the text and the fill are set in
@@ -293,5 +296,45 @@ void buttonSurfaceTests() {
         reason: 'the face stayed down after the finger left',
       );
     });
+  });
+}
+
+/// The ship has to stay on the screen at both ends of its travel.
+///
+/// Two numbers hold this up from opposite sides: how far up from the bottom
+/// the lane's zero line sits, and how far back down the lane the ship may be
+/// pulled. Lowering the line to close the gap under the ship, without pulling
+/// the retreat in to match, drops the ship through the bottom of the screen at
+/// the one moment the player is deliberately reversing into it.
+void shipTravelTests() {
+  test('the ship stays on screen at the bottom of its travel', () {
+    final camera = GameCamera(
+      viewportWidth: Metrics.worldWidth,
+      viewportHeight: Metrics.worldHeight,
+    );
+    final lowest = camera.project(
+      Vector3(0, 0, Metrics.playerBandBack),
+    )!;
+    // Half a ship, so it is the hull that has to be on screen and not its
+    // centre point. Deliberately generous: the drawn ship has no single size
+    // constant, and over-estimating it is the safe direction for a test about
+    // whether something falls off the edge.
+    const halfHull = 26.0;
+    final belly = lowest.screen.dy + halfHull * lowest.scale;
+    expect(
+      belly,
+      lessThan(Metrics.worldHeight),
+      reason: 'pulled all the way back, the ship hangs off the bottom',
+    );
+
+    // And the gap it leaves when resting is worth keeping honest: it is the
+    // one stretch of a portrait screen that shows nothing and cannot be
+    // flown in.
+    final resting = camera.project(Vector3.zero())!;
+    expect(
+      Metrics.worldHeight - resting.screen.dy,
+      lessThan(Metrics.worldHeight * 0.13),
+      reason: 'there is too much dead screen under the ship',
+    );
   });
 }

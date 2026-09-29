@@ -551,6 +551,84 @@ void main() {
       expect(steps[1].travel.dy, greaterThan(0), reason: 'down is not down');
     });
 
+    test('the lesson about shooting only exists when it can be aimed', () {
+      // Without somewhere to point, the step would be a scrim over a fight
+      // with a hole at the origin. It is left out of the sequence entirely
+      // rather than added and then skipped.
+      final plain = flightTutorialSteps(FlightTutorialTargets.wholeScreen());
+      expect(plain.map((s) => s.id), isNot(contains(FlightLesson.shoot)));
+
+      final armed = flightTutorialSteps(
+        FlightTutorialTargets.wholeScreen(),
+        enemy: () => const Rect.fromLTWH(10, 20, 30, 30),
+      );
+      expect(armed.last.id, FlightLesson.shoot);
+      expect(
+        armed.last.spot!(),
+        const Rect.fromLTWH(10, 20, 30, 30),
+        reason: 'the step does not ask where the enemy is',
+      );
+    });
+
+    test('it explains the gun rather than waiting for a shot', () {
+      // The ship fires on a timer and the player has no button for it, so a
+      // step that waited for them to shoot would wait for something they
+      // cannot do. This is the one flight step that advances on a tap.
+      final steps = flightTutorialSteps(
+        FlightTutorialTargets.wholeScreen(),
+        enemy: () => Rect.zero,
+      );
+      final shoot = steps.firstWhere((s) => s.id == FlightLesson.shoot);
+      expect(shoot.advance, TutorialAdvance.anywhere);
+    });
+
+    testWidgets('it waits, showing nothing, until an enemy turns up', (
+      tester,
+    ) async {
+      // The whole reason the spot may return null. Held still from the moment
+      // it became current, no wave would ever arrive and the lesson would be
+      // waiting for something it had itself prevented.
+      phone(tester);
+      Rect? where;
+      final targets = FlightTutorialTargets.wholeScreen();
+      final controller = TutorialController(
+        steps: [
+          flightTutorialSteps(targets, enemy: () => where).last,
+        ],
+        flag: flightTutorialFlag,
+        everyTime: true,
+        store: MemoryTutorialStore(),
+      );
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: TutorialLauncher(
+            controller: controller,
+            child: Scaffold(body: SizedBox.expand(key: targets.up)),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(controller.current?.id, FlightLesson.shoot);
+      expect(
+        find.byType(HandIndicator),
+        findsNothing,
+        reason: 'it marked a spot before there was anything at it',
+      );
+
+      where = const Rect.fromLTWH(120, 300, 60, 60);
+      controller.refresh();
+      await tester.pump();
+
+      expect(
+        find.byType(HandIndicator),
+        findsOneWidget,
+        reason: 'the enemy arrived and nothing was marked',
+      );
+    });
+
     test('it is taught on level 1, and only there', () {
       expect(teachesFlightOn(level: 1, endless: false), isTrue);
 

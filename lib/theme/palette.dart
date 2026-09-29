@@ -277,8 +277,11 @@ class Metrics {
   /// How far up from the bottom of the screen the line at z zero sits.
   ///
   /// The ship starts on that line, so it needs room below it to be pulled
-  /// back into as well as room above to climb into.
-  static const double laneOrigin = 150;
+  /// back into as well as room above to climb into. Only as much room as the
+  /// pull back actually uses, though: every unit beyond that is dead screen
+  /// under the ship, which on a portrait phone is the band a thumb is already
+  /// covering and the last place worth spending height.
+  static const double laneOrigin = 100;
 
   /// How far the ship may fly from the middle, left and right.
   static const double playHalfWidth = 120;
@@ -287,7 +290,10 @@ class Metrics {
   ///
   /// A vertical shooter lives or dies on this. Too small and the ship is on
   /// rails; too large and the player can sit on top of the spawn line.
-  static const double playerBandBack = -48;
+  /// Pulled in with [laneOrigin]. The retreat and the room kept for it are
+  /// one number seen from two sides, and moving the line down without moving
+  /// this drops the ship through the bottom of the screen.
+  static const double playerBandBack = -20;
   static const double playerBandForward = 170;
 
   /// A guard on the axis the game does not use.
@@ -540,6 +546,23 @@ class Metrics {
   /// Where the band starts fading out, as a fraction of its height. The fade
   /// is what stops a ship crossing a visible hard edge on its way in.
   static const double hudBandFadeStart = 0.55;
+
+  /// How far inside the side edges an enemy has to be before the first run
+  /// lesson will point at it.
+  static const double enemyMarkInset = 28;
+
+  /// And how far down, as a fraction of the screen.
+  ///
+  /// Well below the display rather than just clear of it. Measured from the
+  /// bottom of the display, the mark fires on the frame an enemy first clips
+  /// the top corner: it is technically on screen, it is behind the hand that
+  /// is pointing at it, and because the game freezes on that same frame the
+  /// player is shown a ring in the corner with apparently nothing in it.
+  static const double enemyMarkTopFraction = 0.30;
+
+  /// And how far up from the bottom. The caption sits low on the glass, so an
+  /// enemy marked down there would have the explanation laid over it.
+  static const double enemyMarkClearance = 300;
 
   /// How far below the top of the world a boss settles.
   ///

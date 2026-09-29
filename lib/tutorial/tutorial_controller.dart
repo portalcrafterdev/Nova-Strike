@@ -27,6 +27,7 @@ class TutorialStep {
     required this.id,
     required this.target,
     required this.caption,
+    this.spot,
     this.gesture = HandGesture.tap,
     this.advance = TutorialAdvance.target,
     this.travel = Offset.zero,
@@ -40,7 +41,21 @@ class TutorialStep {
 
   /// The real widget being taught. Its [GlobalKey] is how the hole is measured,
   /// so the widget has to be mounted when the step arrives.
+  ///
+  /// Ignored when [spot] is given.
   final GlobalKey target;
+
+  /// Where to cut the hole when the thing being pointed at is not a widget.
+  ///
+  /// An enemy is drawn by the game, not laid out by Flutter, so it has no key
+  /// to measure and no render box to find. This hands back its rectangle on
+  /// the glass instead, in the same global coordinates a key would have given.
+  ///
+  /// Returns null when there is nothing to point at yet, which is the normal
+  /// state of a lesson that is waiting for something to arrive. The overlay
+  /// draws nothing and asks again next frame, exactly as it does for a key
+  /// whose widget has not been laid out.
+  final Rect? Function()? spot;
 
   final String caption;
   final HandGesture gesture;

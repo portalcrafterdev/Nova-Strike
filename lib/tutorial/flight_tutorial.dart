@@ -29,6 +29,7 @@ class FlightLesson {
 
   static const String up = 'fly_up';
   static const String down = 'fly_down';
+  static const String shoot = 'shoot';
 }
 
 /// How far the hand travels while demonstrating a drag.
@@ -40,7 +41,10 @@ const double _travel = 150;
 /// the ship. Nothing here is explained at them; the lesson is the doing of it,
 /// and the game runs for a moment between the two so they see what their own
 /// finger did.
-List<TutorialStep> flightTutorialSteps(FlightTutorialTargets targets) => [
+List<TutorialStep> flightTutorialSteps(
+  FlightTutorialTargets targets, {
+  Rect? Function()? enemy,
+}) => [
   TutorialStep(
     id: FlightLesson.up,
     target: targets.up,
@@ -59,6 +63,28 @@ List<TutorialStep> flightTutorialSteps(FlightTutorialTargets targets) => [
     padding: 0,
     radius: 28,
   ),
+  // The third lesson waits for something to teach with. Until an enemy is on
+  // the glass its spot is null, the overlay draws nothing, and the game runs
+  // on as normal: a lesson about shooting cannot begin before there is
+  // anything to shoot, and nothing arrives while the game is held still.
+  //
+  // It explains rather than asks, which is the opposite of the two above, and
+  // it has to be. The gun is on a timer of its own and the player has no
+  // button for it, so there is no action to wait for. What they need told is
+  // the one thing the screen cannot show them: that lining up is the whole of
+  // aiming, because nothing they do makes the ship fire.
+  if (enemy != null)
+    TutorialStep(
+      id: FlightLesson.shoot,
+      target: targets.up,
+      spot: enemy,
+      caption:
+          'Your ship fires on its own. Slide under an enemy and your shots '
+          'will find it.',
+      advance: TutorialAdvance.anywhere,
+      padding: 16,
+      radius: 40,
+    ),
 ];
 
 /// The one level the flight lesson is taught on.

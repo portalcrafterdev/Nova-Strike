@@ -729,6 +729,56 @@ void main() {
     expect(tile.height, greaterThan(0));
   });
 
+  testWidgets('a level tile carries its number and stars inside it', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+
+    final scope = await scopeFor(const LevelMap());
+    // Level 1 has to be behind the player for its stars to show at all: the
+    // one they are up to says NEXT UP in that slot instead.
+    await scope.progress.completeLevel(level: 1, stars: 2, coinsEarned: 0);
+    await tester.pumpWidget(scope);
+    await tester.pump();
+
+    final tile = find
+        .ancestor(of: find.text('1'), matching: find.byType(InkWell))
+        .first;
+    final box = tester.getRect(tile);
+
+    final stars = find.descendant(
+      of: tile,
+      matching: find.byIcon(Icons.star_rounded),
+    );
+    expect(
+      stars,
+      findsNWidgets(Tuning.starsPerLevel),
+      reason: 'the stars are not in the tile they belong to',
+    );
+    // Being a descendant is not the same as being inside: a strip positioned
+    // past the bottom edge is still in the subtree, and on a grid of fifteen
+    // a row of stars floating between two tiles belongs to neither.
+    for (final star in stars.evaluate()) {
+      expect(
+        box.contains(tester.getRect(find.byWidget(star.widget)).center),
+        isTrue,
+        reason: 'a star sits outside the tile it belongs to',
+      );
+    }
+
+    // The number should carry the tile rather than sit in the middle of it
+    // looking lost. A floor, not a target: below about a third of the tile it
+    // stops reading at arm's length, which is how a child holds a phone.
+    final number = tester.getSize(find.text('1')).height;
+    expect(
+      number / box.height,
+      greaterThan(0.35),
+      reason: 'the number is too small for the tile it is in',
+    );
+  });
+
   testWidgets('nothing sounds while the game is off the screen', (
     tester,
   ) async {

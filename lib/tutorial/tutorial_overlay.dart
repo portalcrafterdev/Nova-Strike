@@ -35,30 +35,49 @@ class TutorialOverlay extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    final targetBox =
-        step.target.currentContext?.findRenderObject() as RenderBox?;
+    // Either a widget's key or, for something the game draws rather than
+    // Flutter lays out, a rectangle handed straight over.
+    Rect? found;
+    if (step.spot != null) {
+      found = step.spot!();
+    } else {
+      final targetBox =
+          step.target.currentContext?.findRenderObject() as RenderBox?;
+      if (targetBox != null && targetBox.hasSize && !targetBox.size.isEmpty) {
+        // Global coordinates, not coordinates relative to this widget. The
+        // entry covers the whole screen so the two are the same, and measuring
+        // through this build context is not: findRenderObject on a stateless
+        // element reaches for the first descendant, and on the first build
+        // there are none yet, so it reports null and then reports the previous
+        // build's empty placeholder, which puts the hole at the origin with no
+        // size.
+        final origin = targetBox.localToGlobal(Offset.zero);
+        found = Rect.fromLTWH(
+          origin.dx,
+          origin.dy,
+          targetBox.size.width,
+          targetBox.size.height,
+        );
+      }
+    }
 
     // Never paint a scrim with no hole in it. That is a full screen black
-    // block with no way through and no way out, so when the target cannot be
-    // measured yet the overlay shows nothing and asks again next frame.
-    if (targetBox == null || !targetBox.hasSize || targetBox.size.isEmpty) {
+    // block with no way through and no way out, so when there is nothing to
+    // point at yet the overlay shows nothing and asks again next frame.
+    if (found == null || found.isEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) => controller.refresh());
       return const SizedBox.shrink();
     }
 
-    // Global coordinates, not coordinates relative to this widget. The entry
-    // covers the whole screen so the two are the same, and measuring through
-    // this build context is not: findRenderObject on a stateless element
-    // reaches for the first descendant, and on the first build there are none
-    // yet, so it reports null and then reports the previous build's empty
-    // placeholder, which puts the hole at the origin with no size.
-    final origin = targetBox.localToGlobal(Offset.zero);
-    final hole = Rect.fromLTWH(
-      origin.dx,
-      origin.dy,
-      targetBox.size.width,
-      targetBox.size.height,
-    ).inflate(step.padding);
+    if (step.spot != null) {
+      // Keep asking. A widget's key stays where it was put, but a spot is a
+      // thing in the game, and a thing in the game moves. Measured once, the
+      // ring stays where the enemy used to be while the enemy flies out from
+      // under it, and the screen holds a mark around nothing.
+      WidgetsBinding.instance.addPostFrameCallback((_) => controller.refresh());
+    }
+
+    final hole = found.inflate(step.padding);
     final screen = MediaQuery.sizeOf(context);
 
     final anywhere = step.advance == TutorialAdvance.anywhere;

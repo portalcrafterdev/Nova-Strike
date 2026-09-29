@@ -209,11 +209,12 @@ class _NovaButtonState extends State<NovaButton> {
     final active = widget.enabled && onPressed != null;
     final colours =
         widget.tone ?? (primary ? NovaTone.primary : NovaTone.quiet);
-    // A coloured fill carries its own edge. Only the violet panel needs a
-    // drawn outline to separate it from the sky behind it.
-    final edge = colours == NovaTone.quiet ? Palette.panelEdge : null;
+    // No outline on any of them. The violet ones carried one because a flat
+    // fill that close to the sky needed help separating from it; the light
+    // across the top does that now, and the two together read as a doubled
+    // edge.
     final ink = colours.ink;
-    final shape = novaShape(edge: edge, bevel: Metrics.buttonRound);
+    final shape = novaShape(bevel: Metrics.buttonRound);
 
     // Held, the face drops and its shadow tightens under it. With the band
     // gone the shadow is the only thing left saying how high the button is,
@@ -322,7 +323,7 @@ class NovaIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final shape = novaShape(edge: Palette.panelEdge, bevel: 18);
+    final shape = novaShape(bevel: 18);
 
     return DecoratedBox(
       decoration: ShapeDecoration(
