@@ -328,6 +328,50 @@ void main() {
       expect(caption.top, greaterThan(target.bottom));
     });
 
+    testWidgets('is readable when the target is the whole screen', (
+      tester,
+    ) async {
+      // A lesson about dragging anywhere points at the whole glass, so there
+      // is no room above, below or beside it. The beside fallback then works
+      // out a left edge past its own right one, the panel is squeezed to
+      // nothing, and the caption comes out as a column one letter wide.
+      phone(tester);
+      final key = GlobalKey();
+      final controller = _controllerWith([
+        TutorialStep(
+          id: 'one',
+          target: key,
+          caption: 'Drag anywhere and pull up. Your ship follows your finger.',
+          padding: 0,
+        ),
+      ]);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: TutorialLauncher(
+            controller: controller,
+            child: Scaffold(body: SizedBox.expand(key: key)),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
+
+      final box = tester.getSize(find.byType(Text).last);
+      expect(
+        box.width,
+        greaterThan(160),
+        reason: 'the caption was squeezed into a column',
+      );
+      // Two or three lines of running text, not one word per line.
+      expect(
+        box.height,
+        lessThan(120),
+        reason: 'the caption wrapped far more than it should have',
+      );
+    });
+
     testWidgets('does not move while it types', (tester) async {
       phone(tester);
       final key = GlobalKey();

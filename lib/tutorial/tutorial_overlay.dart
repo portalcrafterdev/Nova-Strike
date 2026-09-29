@@ -189,9 +189,16 @@ class _Caption extends StatelessWidget {
   final Rect hole;
   final Size screen;
 
-  /// Room a panel needs, roughly, before a side counts as usable.
+  /// Room a panel needs above or below the hole before that side is usable.
   static const double _needs = 96;
+
+  /// Room it needs beside the hole. Far more than the vertical minimum,
+  /// because a panel squeezed into a narrow column wraps one word, then one
+  /// letter, per line.
+  static const double _needsBeside = 180;
+
   static const double _gap = 18;
+  static const double _margin = 16;
 
   @override
   Widget build(BuildContext context) {
@@ -204,32 +211,44 @@ class _Caption extends StatelessWidget {
     late final double left;
     late final double right;
 
+    final roomLeft = hole.left;
+    final roomRight = screen.width - hole.right;
+
     if (below >= _needs) {
       top = hole.bottom + _gap;
       bottom = null;
-      left = 16;
-      right = 16;
+      left = _margin;
+      right = _margin;
     } else if (above >= _needs) {
       top = null;
       bottom = screen.height - hole.top + _gap;
-      left = 16;
-      right = 16;
-    } else {
-      // Neither side has room: a target taller than the screen has to spare,
-      // such as a full height control. Fall back to beside it, on whichever
-      // side of it is clearer. Without this the panel is positioned off an
-      // edge and is simply invisible, which reads as a broken tutorial.
-      top = hole.top.clamp(16.0, screen.height - _needs);
+      left = _margin;
+      right = _margin;
+    } else if (roomLeft >= _needsBeside || roomRight >= _needsBeside) {
+      // A target taller than the screen has to spare, such as a full height
+      // control down one side. Beside it, on whichever side is clearer.
+      top = hole.top.clamp(_margin, screen.height - _needs);
       bottom = null;
-      final roomLeft = hole.left;
-      final roomRight = screen.width - hole.right;
       if (roomRight >= roomLeft) {
         left = hole.right + _gap;
-        right = 16;
+        right = _margin;
       } else {
-        left = 16;
+        left = _margin;
         right = screen.width - hole.left + _gap;
       }
+    } else {
+      // The target is the whole screen, which is what a lesson about dragging
+      // anywhere looks like. There is nothing left to avoid covering, so the
+      // panel simply sits low on the glass, clear of the display at the top
+      // and of the ship at the very bottom.
+      //
+      // Without this branch the beside case computes a left edge past the
+      // right one, the panel is squeezed to nothing, and the caption comes out
+      // as a column one letter wide.
+      top = null;
+      bottom = screen.height * 0.22;
+      left = _margin;
+      right = _margin;
     }
 
     return Positioned(
