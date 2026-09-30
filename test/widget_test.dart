@@ -24,10 +24,18 @@ import 'package:novastrike/ui/screens/level_map.dart';
 import 'package:novastrike/ui/screens/main_menu.dart';
 import 'package:novastrike/ui/screens/settings_screen.dart';
 import 'package:novastrike/ui/screens/upgrade_screen.dart';
+import 'package:novastrike/theme/palette.dart';
+import 'package:novastrike/tutorial/hand_indicator.dart';
+import 'package:novastrike/tutorial/menu_tutorial.dart';
+import 'package:novastrike/tutorial/tutorial_controller.dart';
+import 'package:novastrike/ui/widgets/menu_parts.dart';
+import 'package:novastrike/ui/widgets/nova_button.dart';
+import 'package:novastrike/ui/widgets/result_parts.dart';
 import 'package:novastrike/ui/widgets/volume_slider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'game_services_test.dart' show FakeStore;
 
-Future<AppScope> scopeFor(Widget child) async {
+Future<AppScope> scopeFor(Widget child, {GameServicesController? games}) async {
   final save = SaveService();
   await save.init();
   final progress = PlayerProgress(save)..load();
@@ -37,7 +45,7 @@ Future<AppScope> scopeFor(Widget child) async {
     save: save,
     // The shipped id table, which is still placeholders, so no screen under
     // test ever reaches for a platform channel that has no answer here.
-    games: GameServicesController(platform: TargetPlatform.android),
+    games: games ?? GameServicesController(platform: TargetPlatform.android),
     ads: AdsController(backend: const NoAdsBackend()),
     child: MaterialApp(home: child),
   );
@@ -46,6 +54,17 @@ Future<AppScope> scopeFor(Widget child) async {
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+    // Every one of these tests is about something other than the tutorial, and
+    // a scrim over the screen blocks the very taps they are making. Seeding
+    // the seen flag would not be enough on its own, because a sequence set to
+    // run every time never reads one.
+    TutorialController.debugDisabled = true;
+    TutorialController.debugStore = MemoryTutorialStore();
+  });
+
+  tearDown(() {
+    TutorialController.debugDisabled = false;
+    TutorialController.debugStore = null;
   });
 
   testWidgets('the main menu offers every way into the game', (tester) async {
@@ -54,11 +73,309 @@ void main() {
 
     expect(find.text('PLAY'), findsOneWidget);
     expect(find.text('LEVELS'), findsOneWidget);
-    expect(find.text('UPGRADES'), findsOneWidget);
-    expect(find.text('SETTINGS'), findsOneWidget);
+    expect(find.text('UPGRADE'), findsOneWidget);
     expect(find.text('ENDLESS'), findsOneWidget);
     expect(find.text('HANGAR'), findsOneWidget);
-    expect(find.textContaining('LEVEL 1 OF 1500'), findsOneWidget);
+
+    // Settings lost its row and became the icon in the top corner. It is the
+    // one thing on this menu a player opens once, so it is still here and
+    // still one tap, but it no longer takes a slot from the ways to play.
+    expect(
+      find.byIcon(Icons.settings_rounded),
+      findsOneWidget,
+      reason: 'there is no way to reach settings from the menu',
+    );
+
+    // How far through the campaign the player is, now a bar with the two
+    // numbers at its ends rather than one sentence.
+    expect(find.text('LEVEL 1'), findsOneWidget);
+    expect(find.text('1500'), findsOneWidget);
+  });
+
+  testWidgets('every coach mark on the menu has something to point at', (
+    tester,
+  ) async {
+    TutorialController.debugDisabled = false;
+    TutorialController.debugStore = MemoryTutorialStore();
+    // A key declared in the targets but never attached to a widget leaves the
+    // sequence stalled on that step: the overlay finds no box to measure, so
+    // it shows nothing at all and waits for a frame that will not come. It
+    // throws nothing and looks, on the device, like the tutorial simply
+    // stopping halfway down the screen.
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(await scopeFor(const MainMenu()));
+    await tester.pump();
+
+    // Walked for real, one mark at a time. The hand is only drawn once the
+    // target has been measured, so its absence is exactly the symptom of a key
+    // that was never attached.
+    final steps = menuTutorialSteps(MenuTutorialTargets.forMenu());
+    expect(steps, hasLength(10));
+
+    for (var i = 0; i < steps.length; i++) {
+      expect(
+        find.byType(HandIndicator),
+        findsOneWidget,
+        reason: 'step "${steps[i].id}" has nothing to point at',
+      );
+      if (i == steps.length - 1) {
+        // The last one is PLAY, and pressing it would leave the menu.
+        break;
+      }
+      // Every step before it advances on a tap anywhere.
+      await tester.tapAt(const Offset(180, 8));
+      await tester.pump();
+    }
+  });
+
+  testWidgets('the two ways into the game are the same size', (tester) async {
+    // They were written as two heights at the call site and drifted apart,
+    // which read as PLAY being swollen rather than as ENDLESS being the
+    // quieter one. What makes PLAY the main action is its colour and its
+    // glow, not being taller than the button under it.
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(await scopeFor(const MainMenu()));
+    await tester.pump();
+
+    final play = tester.getSize(find.widgetWithText(NovaButton, 'PLAY'));
+    final endless = tester.getSize(find.widgetWithText(NovaButton, 'ENDLESS'));
+
+    expect(
+      play.height,
+      endless.height,
+      reason: 'PLAY and ENDLESS are different heights',
+    );
+    expect(
+      play.width,
+      endless.width,
+      reason: 'PLAY and ENDLESS are different widths',
+    );
+  });
+
+  testWidgets('the map shows one chapter and pages between them', (
+    tester,
+  ) async {
+    // It used to scroll all hundred chapters at once, five levels across,
+    // which on a portrait phone left each level about twenty pixels wide.
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(await scopeFor(const LevelMap()));
+    await tester.pump();
+
+    expect(find.text('Chapter 1'), findsOneWidget);
+    expect(find.text('Sunrise Belt'), findsOneWidget);
+    expect(find.text('PLAY LEVEL 1'), findsOneWidget);
+    // Only this chapter's levels, not the next one's.
+    expect(find.text('16'), findsNothing);
+
+    await tester.tap(find.bySemanticsLabel('Next chapter'));
+    // Pumped rather than settled: the star field behind every menu drifts
+    // forever on purpose, so nothing wrapped in it ever comes to rest.
+    await tester.pump();
+
+    expect(find.text('Chapter 2'), findsOneWidget);
+    expect(find.text('Chapter 1'), findsNothing);
+    // Browsing ahead shows what is coming without pretending it is playable.
+    // On a fresh save every level here is still locked.
+    expect(find.text('PLAY LEVEL 16'), findsOneWidget);
+    expect(
+      find.byIcon(Icons.lock_rounded),
+      findsWidgets,
+      reason: 'a chapter the player has not reached shows as open',
+    );
+  });
+
+  testWidgets('losing says how far you got, not that you lost', (
+    tester,
+  ) async {
+    // The sheet a child sees most often. Told how close they came, they go
+    // again; told they failed, they put the phone down. The wave is the unit
+    // the heads up display was already counting in a second earlier.
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+
+    final save = SaveService();
+    await save.init();
+    final game =
+        NovaGame(
+            audio: AudioController(save),
+            progress: PlayerProgress(save),
+            levelNumber: 4,
+          )
+          ..spec = LevelGenerator.generate(4)
+          ..waveNotifier.value = const WaveProgress(3, 4);
+
+    await tester.pumpWidget(
+      MaterialApp(home: Material(child: GameOverSheet(game: game))),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('wave 3 of 4'), findsOneWidget);
+    expect(find.text('TRY AGAIN'), findsOneWidget);
+  });
+
+  test('a best score only ever goes up', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final save = SaveService();
+    await save.init();
+    final progress = PlayerProgress(save)..load();
+
+    await progress.recordScore(900);
+    expect(progress.bestScore, 900);
+    // A worse run must not overwrite it, or the number stops meaning best.
+    await progress.recordScore(120);
+    expect(progress.bestScore, 900);
+    await progress.recordScore(1500);
+    expect(progress.bestScore, 1500);
+  });
+
+  testWidgets('the result sheet arrives rather than appears', (tester) async {
+    // The whole sheet is the reward for the level. Printed in its finished
+    // state the instant it opens, it reads as a receipt.
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+
+    final save = SaveService();
+    await save.init();
+    final game =
+        NovaGame(
+            audio: AudioController(save),
+            progress: PlayerProgress(save),
+            levelNumber: 1,
+          )
+          ..spec = LevelGenerator.generate(1)
+          ..score = 1234;
+
+    await tester.pumpWidget(
+      MaterialApp(home: Material(child: LevelCompleteSheet(game: game))),
+    );
+    await tester.pump();
+
+    final total = formatCount(game.runScore);
+    expect(
+      find.text(total),
+      findsNothing,
+      reason: 'the totals are printed rather than counted up to',
+    );
+
+    await tester.pumpAndSettle();
+    expect(
+      find.text(total),
+      findsOneWidget,
+      reason: 'the count does not land on the real total',
+    );
+  });
+
+  testWidgets('the stars are counted out rather than already there', (
+    tester,
+  ) async {
+    // The stars are the whole reward for the level. Drawn in their final
+    // state the moment the sheet opens, the reward has already happened by
+    // the time the player looks at it, and it stops being felt as one.
+    final landed = <int>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: StarRow(earned: 3, onLanded: landed.add)),
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      landed,
+      isEmpty,
+      reason: 'the stars are already there on the first frame',
+    );
+
+    // Part way through the sequence: some have landed and some have not.
+    // Written against the timing constants rather than a number of
+    // milliseconds, so retuning the sequence does not break the test that is
+    // protecting it.
+    await tester.pump(ResultTiming.starsBegin + StarRow.fall);
+    expect(
+      landed,
+      isNotEmpty,
+      reason: 'no star had landed part way through the sequence',
+    );
+    expect(
+      landed.length,
+      lessThan(3),
+      reason: 'the stars all arrive at once instead of one at a time',
+    );
+    expect(landed, orderedEquals(List.generate(landed.length, (i) => i)));
+
+    await tester.pumpAndSettle();
+    expect(landed, [0, 1, 2], reason: 'not every earned star arrived');
+  });
+
+  testWidgets('a player who turned animation off is just told the result', (
+    tester,
+  ) async {
+    // Reduce motion is an accessibility setting, not a preference to be
+    // overridden by something the developer thinks is worth seeing.
+    final landed = <int>[];
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(disableAnimations: true),
+        child: MaterialApp(
+          home: Scaffold(body: StarRow(earned: 2, onLanded: landed.add)),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      landed,
+      [0, 1],
+      reason: 'the stars still animate when animation is turned off',
+    );
+  });
+
+  testWidgets('the campaign bar shows something on the first level', (
+    tester,
+  ) async {
+    // One level in fifteen hundred is 0.07 percent. Drawn as a plain fraction
+    // of the width that is a quarter of a pixel, so the bar reads as empty for
+    // the first several hundred levels and looks broken to every new player.
+    // Nobody building this notices, because the save being tested with is
+    // always further along than the save a new player has.
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 360,
+            child: ProgressPill(level: 1, total: Tuning.totalLevels),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final fills = tester
+        .widgetList<Container>(find.byType(Container))
+        .where((box) {
+          final decoration = box.decoration;
+          return decoration is BoxDecoration &&
+              decoration.color == Palette.panelFillLit;
+        })
+        .toList();
+    expect(fills, isNotEmpty, reason: 'the bar has no fill at all');
+
+    final painted = tester.renderObject<RenderBox>(find.byWidget(fills.first));
+    expect(
+      painted.size.width,
+      greaterThanOrEqualTo(painted.size.height),
+      reason: 'the fill is thinner than it is tall, so it is not visible',
+    );
   });
 
   testWidgets('the menu offers sign in without opening another screen', (
@@ -75,13 +392,20 @@ void main() {
     await tester.pump();
 
     expect(tester.takeException(), isNull, reason: 'the menu does not lay out');
+    // The strip says what it is over two lines rather than one shouted one,
+    // so the invitation and the service it signs into are checked separately.
     expect(
-      find.text('SIGN IN WITH ${scope.games.serviceName.toUpperCase()}'),
+      find.text('Sign in'),
       findsOneWidget,
       reason: 'there is no way to sign in from the menu',
     );
+    expect(
+      find.text(scope.games.serviceName),
+      findsOneWidget,
+      reason: 'the strip does not say which service it signs into',
+    );
     // And the way through to the boards is right beside it.
-    expect(find.byIcon(Icons.leaderboard), findsOneWidget);
+    expect(find.byIcon(Icons.leaderboard_rounded), findsOneWidget);
   });
 
   testWidgets('the ranks screen opens from the menu and stands on its own', (
@@ -196,6 +520,80 @@ void main() {
         reason: '${badge.id} is missing from the list',
       );
     }
+  });
+
+  testWidgets('the menu offers a disconnect, and asks before doing it', (
+    tester,
+  ) async {
+    // A phone, not the 800 by 600 a widget test defaults to. The strip lives
+    // at the bottom of the menu and is off the glass entirely on a surface
+    // that shape, so the button is found in the tree and then tapped at
+    // coordinates that are not on the screen.
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+
+    final store = FakeStore();
+    final games = GameServicesController(
+      backend: store,
+      platform: TargetPlatform.android,
+    );
+    await tester.pumpWidget(await scopeFor(const MainMenu(), games: games));
+    await tester.pump();
+
+    final button = find.bySemanticsLabel('Disconnect from Google Play Games');
+
+    // Signed out there is nothing to end, and a button that does nothing must
+    // not be sitting next to the one inviting you to sign in.
+    expect(button, findsNothing, reason: 'it offers to disconnect from nobody');
+
+    await games.signIn();
+    await tester.pump();
+    expect(button, findsOneWidget);
+
+    await tester.tap(button);
+    // Two pumps, not one: the first starts the dialog's transition and the
+    // second lands it. Not pumpAndSettle, because the star field behind the
+    // menu drifts forever and would never settle.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    final dialog = find.byType(AlertDialog);
+    expect(dialog, findsOneWidget, reason: 'it disconnected without asking');
+
+    // The wording is load bearing. Play Games Services version 2 gives a game
+    // no way to sign anybody out, so a dialog that said it would sign them
+    // out would be making a promise the button cannot keep, and the player
+    // would go and find themselves still signed in.
+    expect(
+      find.descendant(
+        of: dialog,
+        matching: find.textContaining('does not sign you out'),
+      ),
+      findsOneWidget,
+      reason: 'the dialog claims more than the button can do',
+    );
+
+    await tester.tap(find.widgetWithText(TextButton, 'CANCEL'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(
+      games.isDisconnected,
+      isFalse,
+      reason: 'cancelling disconnected anyway',
+    );
+
+    await tester.tap(button);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.widgetWithText(TextButton, 'DISCONNECT'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(games.isDisconnected, isTrue);
+    // And the strip goes back to offering the way in, with nothing left to
+    // press that would end a connection there is no longer any of.
+    expect(button, findsNothing);
+    expect(find.text('Sign in'), findsOneWidget);
   });
 
   testWidgets('the settings screen has one slider per channel', (tester) async {
@@ -331,6 +729,56 @@ void main() {
     expect(tile.height, greaterThan(0));
   });
 
+  testWidgets('a level tile carries its number and stars inside it', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+
+    final scope = await scopeFor(const LevelMap());
+    // Level 1 has to be behind the player for its stars to show at all: the
+    // one they are up to says NEXT UP in that slot instead.
+    await scope.progress.completeLevel(level: 1, stars: 2, coinsEarned: 0);
+    await tester.pumpWidget(scope);
+    await tester.pump();
+
+    final tile = find
+        .ancestor(of: find.text('1'), matching: find.byType(InkWell))
+        .first;
+    final box = tester.getRect(tile);
+
+    final stars = find.descendant(
+      of: tile,
+      matching: find.byIcon(Icons.star_rounded),
+    );
+    expect(
+      stars,
+      findsNWidgets(Tuning.starsPerLevel),
+      reason: 'the stars are not in the tile they belong to',
+    );
+    // Being a descendant is not the same as being inside: a strip positioned
+    // past the bottom edge is still in the subtree, and on a grid of fifteen
+    // a row of stars floating between two tiles belongs to neither.
+    for (final star in stars.evaluate()) {
+      expect(
+        box.contains(tester.getRect(find.byWidget(star.widget)).center),
+        isTrue,
+        reason: 'a star sits outside the tile it belongs to',
+      );
+    }
+
+    // The number should carry the tile rather than sit in the middle of it
+    // looking lost. A floor, not a target: below about a third of the tile it
+    // stops reading at arm's length, which is how a child holds a phone.
+    final number = tester.getSize(find.text('1')).height;
+    expect(
+      number / box.height,
+      greaterThan(0.35),
+      reason: 'the number is too small for the tile it is in',
+    );
+  });
+
   testWidgets('nothing sounds while the game is off the screen', (
     tester,
   ) async {
@@ -393,6 +841,10 @@ void main() {
     // each button half a portrait screen wide and turned QUIT TO MENU into
     // QUI and NEXT LEVEL into NEX. A button that cannot say what it does is
     // not a button.
+    //
+    // It earned its keep a second time when the button face grew from 16pt
+    // monospace to 21pt Baloo2: QUIT TO MENU stopped fitting, and the label
+    // was cut to HOME rather than the type being shrunk back.
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
@@ -410,9 +862,9 @@ void main() {
           ..spec = LevelGenerator.generate(1);
 
     final sheets = <Widget, List<String>>{
-      PauseOverlay(game: game): ['RESUME', 'RESTART', 'QUIT TO MENU'],
-      LevelCompleteSheet(game: game): ['NEXT LEVEL', 'REPLAY', 'MENU'],
-      GameOverSheet(game: game): ['RETRY', 'MENU'],
+      PauseOverlay(game: game): ['RESUME', 'RESTART', 'HOME'],
+      LevelCompleteSheet(game: game): ['NEXT LEVEL', 'REPLAY', 'HOME'],
+      GameOverSheet(game: game): ['TRY AGAIN', 'HOME'],
     };
 
     for (final entry in sheets.entries) {
@@ -426,7 +878,7 @@ void main() {
         expect(
           paragraph.didExceedMaxLines,
           isFalse,
-          reason: ' does not fit on its button',
+          reason: '$label does not fit on its button',
         );
       }
     }

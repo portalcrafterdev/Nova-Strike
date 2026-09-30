@@ -115,11 +115,13 @@ Future<PlayerProgress> _progress() async {
 GameServicesController _controller(
   FakeStore store, {
   PlayIds? ids,
+  SaveService? save,
   TargetPlatform platform = TargetPlatform.android,
 }) {
   return GameServicesController(
     backend: store,
     ids: ids ?? _filled,
+    save: save,
     platform: platform,
   );
 }
@@ -451,5 +453,114 @@ void main() {
     await games.showAchievements();
     expect(store.calls, contains('showLeaderboards:a_stars'));
     expect(store.calls, contains('showAchievements'));
+  });
+
+  test('disconnecting stops anything else being sent', () async {
+    final store = FakeStore();
+    final progress = await _progress();
+    final games = _controller(store)..watch(progress);
+    expect(await games.signIn(), isTrue);
+    expect(games.canSubmit, isTrue);
+
+    await games.disconnect();
+
+    expect(games.isDisconnected, isTrue);
+    expect(games.isSignedIn, isFalse);
+    expect(games.status, GameServicesStatus.signedOut);
+    expect(games.playerName, isNull);
+    expect(games.canSubmit, isFalse);
+
+    store.calls.clear();
+    await progress.completeLevel(level: 4, stars: 3, coinsEarned: 0);
+    await games.report();
+    expect(
+      store.calls,
+      isEmpty,
+      reason: 'it kept reporting after being disconnected',
+    );
+  });
+
+  test('a disconnect survives a restart', () async {
+    // The point of the whole feature. Play Games Services version 2 signs the
+    // player back in by itself on launch and gives a game no way to sign them
+    // out, so a disconnect held only in memory would last until the app was
+    // closed and then quietly undo itself. Nothing else here would notice:
+    // the player would simply find themselves connected again.
+    final save = SaveService();
+    await save.init();
+
+    final first = _controller(FakeStore()..signedIn = true, save: save);
+    await first.init();
+    expect(first.isSignedIn, isTrue);
+    await first.disconnect();
+
+    // A new controller over the same save, which is what the next launch is.
+    // The store still says the player is signed in, as it will.
+    final store = FakeStore()..signedIn = true;
+    final second = _controller(store, save: save);
+    await second.init();
+
+    expect(second.isDisconnected, isTrue);
+    expect(second.status, GameServicesStatus.signedOut);
+    expect(
+      store.calls,
+      isEmpty,
+      reason: 'it reached for the store before checking it was allowed to',
+    );
+  });
+
+  test('signing in again reconnects and says where the player stands', () async {
+    final save = SaveService();
+    await save.init();
+    final progress = await _progress();
+    final store = FakeStore();
+    final games = _controller(store, save: save)..watch(progress);
+
+    expect(await games.signIn(), isTrue);
+    await progress.completeLevel(level: 4, stars: 3, coinsEarned: 0);
+    await games.report();
+    expect(store.scores['a_level'], 4);
+
+    await games.disconnect();
+    store.scores.clear();
+
+    // Nothing at all happens while away, so the only thing that could make
+    // the board move on reconnecting is the reconnection itself.
+    expect(await games.signIn(), isTrue);
+    expect(games.isDisconnected, isFalse);
+    expect(save.loadStoreDisconnected(), isFalse);
+
+    // The number goes up again even though it has not changed since this
+    // controller last sent it. The markers that stop a number being sent
+    // twice are only true of the connection they were built against, and the
+    // account on the other end of this one may not be the account that got
+    // the first submission. Holding them across a disconnect would mean a
+    // player who reconnects on a different account never appears on the board
+    // at all until they happen to clear another level.
+    expect(
+      store.scores['a_level'],
+      4,
+      reason: 'reconnecting left the board holding nothing',
+    );
+  });
+
+  test('backing out of the sheet leaves the disconnect standing', () async {
+    // Tapping sign in is not the same as signing in. If the store's own sheet
+    // is dismissed, the player is exactly where they were, and treating the
+    // tap alone as a change of mind would reconnect them on the next launch
+    // without them ever having agreed to it.
+    final save = SaveService();
+    await save.init();
+    final store = FakeStore();
+    final games = _controller(store, save: save);
+
+    expect(await games.signIn(), isTrue);
+    await games.disconnect();
+
+    store.signInSucceeds = false;
+    expect(await games.signIn(), isFalse);
+
+    expect(games.isDisconnected, isTrue);
+    expect(save.loadStoreDisconnected(), isTrue);
   });
 }

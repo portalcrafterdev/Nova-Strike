@@ -116,6 +116,25 @@ class Tuning {
   static const double bossRepeatHpBonus = 0.06;
   static const double bossPhaseTwoThreshold = 0.66;
   static const double bossPhaseThreeThreshold = 0.33;
+
+  /// How many phases a boss fight has.
+  static const int bossPhases = 3;
+
+  /// Which phase a boss at this much health belongs in.
+  ///
+  /// Derived from the health rather than read off the boss, so the readout
+  /// and the behaviour cannot disagree: the boss decides its own phase from
+  /// the same two thresholds, and a second source of truth here is a bug
+  /// waiting for the frame where one updates before the other.
+  static int bossPhaseAt(double fraction) {
+    if (fraction <= bossPhaseThreeThreshold) {
+      return 3;
+    }
+    if (fraction <= bossPhaseTwoThreshold) {
+      return 2;
+    }
+    return 1;
+  }
   static const double bossPhaseSpeedStep = 0.25;
   static const double bossPhaseFireStep = 0.15;
   static const double bossEntryDuration = 2.0;
@@ -130,6 +149,13 @@ class Tuning {
 
   // Player.
   static const int playerLives = 3;
+
+  /// How far up or down the lane a drag has to travel before it is reported
+  /// as a deliberate move.
+  ///
+  /// Only the tutorial listens. Without a floor, the jitter of a thumb resting
+  /// on the glass would satisfy a lesson the player has not been taught yet.
+  static const double steerReportDistance = 26;
   static const double playerFollowLerp = 0.25;
 
   /// How far up the lane from the finger the ship flies, so the thumb never

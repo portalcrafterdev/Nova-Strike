@@ -79,44 +79,55 @@ class _Pill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final edge = selected ? Palette.uiAccent : Palette.panelEdge;
-    return Opacity(
-      opacity: unlocked ? 1 : 0.35,
-      child: DecoratedBox(
-        decoration: ShapeDecoration(
-          shape: novaShape(edge: edge, width: selected ? 1.6 : 1),
-          color: selected ? Palette.panelFillLit : Palette.panelFill,
-        ),
+    // The setting you are on is filled teal, not merely outlined. On a screen
+    // where the main action is a solid amber slab, an outline does not read as
+    // chosen; it reads as the one that has been switched off.
+    final tone = selected ? NovaTone.go : NovaTone.quiet;
+    // No outline on either, and no band under either. What holds an unchosen
+    // setting off the sky is the light across its top, which the drawn edge
+    // was standing in for before there was any.
+    final shape = novaShape(bevel: 18);
+    final ink = unlocked ? tone.ink : Palette.uiTextLocked;
+
+    return DecoratedBox(
+      decoration: ShapeDecoration(
+        shape: shape,
+        gradient: novaGloss(tone),
+        shadows: novaLift(depth: Metrics.liftDepthSmall),
+      ),
+      child: Opacity(
+        opacity: unlocked ? 1 : 0.55,
         child: Material(
           color: Colors.transparent,
+          shape: shape,
+          clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: unlocked ? onTap : null,
-            customBorder: novaShape(),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 4),
-              // Scaled down rather than clipped. Three pills share the width of
-              // whatever screen the game is on, and the longest of the three
-              // labels does not fit on a narrow one.
+            child: SizedBox(
+              height: 54,
+              // Scaled down rather than clipped. Three pills share the width
+              // of whatever screen the game is on, and the longest of the
+              // three labels does not fit on a narrow one.
               child: FittedBox(
                 fit: BoxFit.scaleDown,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (!unlocked) ...[
-                      const Icon(
-                        Icons.lock_outline,
-                        size: 13,
-                        color: Palette.uiTextDim,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (!unlocked) ...[
+                        Icon(Icons.lock_rounded, size: 15, color: ink),
+                        const SizedBox(width: 5),
+                      ],
+                      Text(
+                        DifficultyTuning.labelOf(difficulty),
+                        style: AppType.button.copyWith(
+                          color: ink,
+                          fontSize: 17,
+                        ),
                       ),
-                      const SizedBox(width: 5),
                     ],
-                    Text(
-                      DifficultyTuning.labelOf(difficulty),
-                      style: AppType.button.copyWith(
-                        color: selected ? Palette.uiAccent : Palette.uiText,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),

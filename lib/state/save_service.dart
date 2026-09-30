@@ -32,6 +32,25 @@ class SaveService {
   static const String keyShip = 'shipId';
   static const String keyShipsOwned = 'shipsOwned';
   static const String keyEndlessBest = 'endlessBest';
+
+  /// Whether the player has disconnected the game from Play Games or Game
+  /// Center.
+  ///
+  /// This has to be remembered on disk, which is not obvious. Play Games
+  /// Services version 2 took away the sign out call a game used to be able to
+  /// make, and signs the player back in by itself the moment the game starts.
+  /// Forgetting the account in memory would therefore last exactly until the
+  /// next launch, so the choice is written down and checked before the game is
+  /// allowed to connect at all.
+  static const String keyStoreDisconnected = 'storeDisconnected';
+
+  /// The best single run, campaign or endless.
+  ///
+  /// Kept apart from [keyEndlessBest], which is only ever an endless run. This
+  /// one is what the sheet at the end of a lost level compares against, and a
+  /// campaign score has nothing to measure itself by without it.
+  static const String keyBestScore = 'bestScore';
+
   static const String keyDifficulty = 'difficulty';
 
   /// Running totals that only ever go up, kept for the achievements.
@@ -153,6 +172,12 @@ class SaveService {
     await _prefs?.setInt(keyEndlessBest, score);
   }
 
+  int loadBestScore() => _prefs?.getInt(keyBestScore) ?? 0;
+
+  Future<void> saveBestScore(int score) async {
+    await _prefs?.setInt(keyBestScore, score);
+  }
+
   AudioSettings loadAudioSettings() {
     final prefs = _prefs;
     if (prefs == null) {
@@ -231,6 +256,13 @@ class SaveService {
     await _prefs?.setInt(keyCoins, coins);
   }
 
+  bool loadStoreDisconnected() =>
+      _prefs?.getBool(keyStoreDisconnected) ?? false;
+
+  Future<void> saveStoreDisconnected(bool value) async {
+    await _prefs?.setBool(keyStoreDisconnected, value);
+  }
+
   bool loadHaptics() => _prefs?.getBool(keyHaptics) ?? true;
 
   Future<void> saveHaptics(bool enabled) async {
@@ -272,6 +304,7 @@ class SaveService {
     await prefs.remove(keyShip);
     await prefs.remove(keyShipsOwned);
     await prefs.remove(keyEndlessBest);
+    await prefs.remove(keyBestScore);
   }
 
   static Map<String, int> decodeUpgrades(String? raw) {

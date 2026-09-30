@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../game/components/power_up.dart';
@@ -46,7 +48,7 @@ class _HudState extends State<Hud> with SingleTickerProviderStateMixin {
     return Stack(
       children: [
         _EdgeGlow(livesNotifier: game.livesNotifier, pulse: _pulse),
-        const _TopBand(),
+        _TopBand(game: game),
         SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -57,49 +59,40 @@ class _HudState extends State<Hud> with SingleTickerProviderStateMixin {
                   children: [
                     ValueListenableBuilder<int>(
                       valueListenable: game.livesNotifier,
-                      builder: (context, lives, _) => Row(
-                        children: List.generate(
-                          lives.clamp(0, 8),
-                          (_) => const Padding(
-                            padding: EdgeInsets.only(right: 3),
-                            child: Icon(
-                              Icons.favorite,
-                              size: 16,
-                              color: Palette.bossHealthBar,
+                      // Lives are drawn as a fixed row of three, with the ones
+                      // already spent left in place and hollowed out rather
+                      // than removed. A row that shortens as you lose tells
+                      // you how many you have; a row that empties tells you
+                      // how many you have left out of how many there were,
+                      // which is the thing actually worth knowing.
+                      builder: (context, lives, _) {
+                        // A revive can push the count past what the run
+                        // started with, so the row grows rather than dropping
+                        // the extra heart on the floor.
+                        final total = math
+                            .max(game.progress.lives, lives)
+                            .clamp(1, 8);
+                        return Row(
+                          children: List.generate(
+                            total,
+                            (i) => Padding(
+                              padding: const EdgeInsets.only(right: 4),
+                              child: Icon(
+                                i < lives
+                                    ? Icons.favorite_rounded
+                                    : Icons.favorite_border_rounded,
+                                size: 26,
+                                color: i < lives
+                                    ? Palette.heartFull
+                                    : Palette.heartEmptyEdge,
+                              ),
                             ),
                           ),
-                        ),
-                      ),
+                        );
+                      },
                     ),
                     const Spacer(),
-                    Column(
-                      children: [
-                        ValueListenableBuilder<int>(
-                          valueListenable: game.levelNotifier,
-                          builder: (context, level, _) => Text(
-                            game.progress.difficulty == Difficulty.medium
-                                ? 'LEVEL $level'
-                                : 'LEVEL $level  '
-                                      '${DifficultyTuning.labelOf(game.progress.difficulty)}',
-                            style: AppType.hud,
-                          ),
-                        ),
-                        ValueListenableBuilder<String>(
-                          valueListenable: game.modifierNotifier,
-                          builder: (context, modifier, _) {
-                            if (modifier.isEmpty) {
-                              return const SizedBox.shrink();
-                            }
-                            return Text(
-                              modifier,
-                              style: AppType.hudSmall.copyWith(
-                                color: Palette.uiAccentWarm,
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
+                    _LevelPill(game: game),
                     const Spacer(),
                     NovaIconButton(
                       icon: Icons.pause,
@@ -108,30 +101,19 @@ class _HudState extends State<Hud> with SingleTickerProviderStateMixin {
                   ],
                 ),
                 const SizedBox(height: 4),
+                // Both ends, nothing in the middle. The coin count used to sit
+                // between two spacers, which put it dead centre of the screen:
+                // the column enemies fly down, directly under the level
+                // number, so a wave arriving crossed it and an explosion
+                // erased it. Readouts belong at the edges, where nothing is
+                // flying.
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    ValueListenableBuilder<int>(
-                      valueListenable: game.scoreNotifier,
-                      builder: (context, score, _) =>
-                          Text('SCORE $score', style: AppType.hudSmall),
+                    Flexible(child: _TallyPill(game: game)),
+                    Flexible(
+                      child: _HudPill(child: _Objective(game: game)),
                     ),
-                    const Spacer(),
-                    ValueListenableBuilder<int>(
-                      valueListenable: game.coinsNotifier,
-                      builder: (context, coins, _) => Row(
-                        children: [
-                          const Icon(
-                            Icons.monetization_on,
-                            size: 12,
-                            color: Palette.coin,
-                          ),
-                          const SizedBox(width: 4),
-                          Text('$coins', style: AppType.hudSmall),
-                        ],
-                      ),
-                    ),
-                    const Spacer(),
-                    _Objective(game: game),
                   ],
                 ),
                 const SizedBox(height: 6),
@@ -149,6 +131,160 @@ class _HudState extends State<Hud> with SingleTickerProviderStateMixin {
   }
 }
 
+/// One readout across the top of the play area.
+///
+/// Filled and outlined rather than bare text. The display is drawn over the
+/// game, so what sits behind a number changes from frame to frame, and white
+/// text over a bright explosion is unreadable at exactly the moment somebody
+/// wants to check it. The band behind the top of the screen helps and is not
+/// enough on its own, because the brightest thing on any frame is whatever
+/// just died. A pill brings its own background with it.
+class _HudPill extends StatelessWidget {
+  const _HudPill({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: Metrics.hudPillHeight,
+      padding: const EdgeInsets.symmetric(horizontal: 11),
+      decoration: ShapeDecoration(
+        shape: novaShape(
+          edge: Palette.panelEdge,
+          width: Metrics.hudPillEdge,
+          bevel: Metrics.hudPillRound,
+        ),
+        color: Palette.panelFillLow,
+      ),
+      child: child,
+    );
+  }
+}
+
+/// Score and coins, in one pill.
+///
+/// One pill rather than two, because they are the two halves of the same
+/// running tally and because two pills plus the objective do not fit across a
+/// 320 wide phone once the score reaches six figures.
+class _TallyPill extends StatelessWidget {
+  const _TallyPill({required this.game});
+
+  final NovaGame game;
+
+  @override
+  Widget build(BuildContext context) {
+    return _HudPill(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: ValueListenableBuilder<int>(
+              valueListenable: game.scoreNotifier,
+              builder: (context, score, _) => Text(
+                'SCORE $score',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppType.hudSmall,
+              ),
+            ),
+          ),
+          const SizedBox(width: 9),
+          // A rule between them, so the two numbers do not read as one.
+          const SizedBox(
+            height: 13,
+            child: VerticalDivider(
+              width: Metrics.hudPillEdge,
+              thickness: Metrics.hudPillEdge,
+              color: Palette.panelEdge,
+            ),
+          ),
+          const SizedBox(width: 9),
+          // Big enough to recognise. At the 12 it was, the coin was four
+          // pixels of gold and read as a full stop.
+          const Icon(Icons.monetization_on, size: 15, color: Palette.coin),
+          const SizedBox(width: 5),
+          ValueListenableBuilder<int>(
+            valueListenable: game.coinsNotifier,
+            builder: (context, coins, _) => Text(
+              '$coins',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppType.hudSmall.copyWith(color: Palette.uiText),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Which level this is, as the one readout that names where you are.
+///
+/// Taller than the others and sitting on a ledge, because it is the heading of
+/// the screen rather than a counter on it.
+class _LevelPill extends StatelessWidget {
+  const _LevelPill({required this.game});
+
+  final NovaGame game;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          height: Metrics.hudLevelPillHeight,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: ShapeDecoration(
+            shape: novaShape(
+              edge: Palette.panelEdge,
+              bevel: Metrics.hudLevelPillHeight / 2,
+            ),
+            gradient: novaGloss(NovaTone.quiet),
+            shadows: novaLift(depth: Metrics.liftDepthSmall),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ValueListenableBuilder<int>(
+                valueListenable: game.levelNotifier,
+                builder: (context, level, _) =>
+                    Text('LEVEL $level', style: AppType.hud),
+              ),
+              // The difficulty, and only when it is not the default. It used
+              // to be run on to the level number behind two spaces, which
+              // made one string out of two separate facts and left the pair
+              // of them looking like a typesetting mistake.
+              if (game.progress.difficulty != Difficulty.medium) ...[
+                const SizedBox(width: 9),
+                Text(
+                  DifficultyTuning.labelOf(game.progress.difficulty),
+                  style: AppType.hudSmall.copyWith(color: Palette.uiTextSoft),
+                ),
+              ],
+            ],
+          ),
+        ),
+        // Under the pill rather than inside it, so a modifier arriving does
+        // not change the width of the thing naming the level.
+        ValueListenableBuilder<String>(
+          valueListenable: game.modifierNotifier,
+          builder: (context, modifier, _) {
+            if (modifier.isEmpty) {
+              return const SizedBox.shrink();
+            }
+            return Text(
+              modifier,
+              style: AppType.hudSmall.copyWith(color: Palette.uiAccentWarm),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
 /// A dark band behind the top of the display.
 ///
 /// Enemies enter from the top of the screen, which is exactly where the level
@@ -156,15 +292,27 @@ class _HudState extends State<Hud> with SingleTickerProviderStateMixin {
 /// text and neither the text nor the enemy reads. The band fades out toward
 /// the bottom so a ship never crosses a hard edge on its way in.
 class _TopBand extends StatelessWidget {
-  const _TopBand();
+  const _TopBand({required this.game});
+
+  final NovaGame game;
 
   @override
   Widget build(BuildContext context) {
     const shade = Palette.uiBackground;
     return IgnorePointer(
-      child: SizedBox(
-        width: double.infinity,
-        height: MediaQuery.paddingOf(context).top + Metrics.hudBandHeight,
+      // A boss adds a name, a phase and two more bars to the top of the
+      // screen, and the band has to grow with them. Left fixed, the bar sits
+      // on the boss's own hull and neither one reads.
+      child: ValueListenableBuilder<double>(
+        valueListenable: game.bossHealthNotifier,
+        builder: (context, health, child) => SizedBox(
+          width: double.infinity,
+          height:
+              MediaQuery.paddingOf(context).top +
+              Metrics.hudBandHeight +
+              (health >= 0 ? Metrics.hudBandBossExtra : 0),
+          child: child,
+        ),
         child: DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -209,6 +357,8 @@ class _Objective extends StatelessWidget {
               wave.current > wave.total
                   ? 'WAVE ${wave.current}'
                   : 'WAVE ${wave.current}/${wave.total}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: AppType.hudSmall,
             ),
           );
@@ -217,6 +367,8 @@ class _Objective extends StatelessWidget {
           valueListenable: game.survivalNotifier,
           builder: (context, seconds, _) => Text(
             seconds >= 0 ? '$objective ${seconds.ceil()}' : objective,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: AppType.hudSmall.copyWith(color: Palette.uiAccentWarm),
           ),
         );
@@ -281,51 +433,79 @@ class _BossBar extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            ValueListenableBuilder<String>(
-              valueListenable: game.bossNameNotifier,
-              builder: (context, name, _) => Text(
-                name.toUpperCase(),
-                textAlign: TextAlign.center,
-                style: AppType.hudSmall.copyWith(color: Palette.bossHealthBar),
-              ),
+            Row(
+              children: [
+                const Icon(
+                  Icons.workspace_premium_rounded,
+                  size: 20,
+                  color: Palette.star,
+                ),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: ValueListenableBuilder<String>(
+                    valueListenable: game.bossNameNotifier,
+                    builder: (context, name, _) => Text(
+                      name.toUpperCase(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppType.hud.copyWith(fontSize: 16),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Which phase, out of how many. A bar on its own says how much
+                // is left; this says how much harder it is about to get, and
+                // the two together are what make the fight readable.
+                Text(
+                  'PHASE ${Tuning.bossPhaseAt(health)} OF '
+                  '${Tuning.bossPhases}',
+                  style: AppType.hudSmall.copyWith(color: Palette.uiTextSoft),
+                ),
+              ],
             ),
-            const SizedBox(height: 5),
-            // The layers in front of the core, each shown only while it is
-            // what the player's shots are going into. Without these the bar
-            // below sits at full through the whole opening of six of the ten
-            // fights and then drops all at once.
+            const SizedBox(height: 6),
+            _HealthBar(value: health),
+            const SizedBox(height: 6),
+            // The layers in front of the core. Without these the bar above
+            // sits at full through the whole opening of six of the ten fights
+            // and then drops all at once.
+            //
+            // Shown whenever the boss has the layer, even at empty, rather
+            // than only while it has something left. A row that appears and
+            // disappears mid fight moves everything under it, and a broken
+            // shield you can still see is the clearest possible signal that
+            // the shots are finally reaching the core.
             ValueListenableBuilder<BossArmour>(
               valueListenable: game.bossArmourNotifier,
-              builder: (context, armour, _) => Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (armour.hasPods && armour.pods > 0) ...[
-                    _ArmourBar(
-                      value: armour.pods,
-                      tint: Palette.bossCore,
-                      label: 'PODS',
-                    ),
-                    const SizedBox(height: 3),
+              builder: (context, armour, _) {
+                if (!armour.hasShield && !armour.hasPods) {
+                  return const SizedBox.shrink();
+                }
+                return Row(
+                  children: [
+                    if (armour.hasShield)
+                      Expanded(
+                        child: _ArmourBar(
+                          value: armour.shield,
+                          tint: Palette.bossShield,
+                          icon: Icons.shield_rounded,
+                          label: 'Shield',
+                        ),
+                      ),
+                    if (armour.hasShield && armour.hasPods)
+                      const SizedBox(width: 10),
+                    if (armour.hasPods)
+                      Expanded(
+                        child: _ArmourBar(
+                          value: armour.pods,
+                          tint: Palette.shipInterceptor,
+                          icon: Icons.battery_full_rounded,
+                          label: 'Side pods',
+                        ),
+                      ),
                   ],
-                  if (armour.hasShield && armour.shield > 0) ...[
-                    _ArmourBar(
-                      value: armour.shield,
-                      tint: Palette.bossShield,
-                      label: 'SHIELD',
-                    ),
-                    const SizedBox(height: 3),
-                  ],
-                ],
-              ),
-            ),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: health,
-                minHeight: Metrics.bossHealthBarHeight,
-                backgroundColor: Palette.bossHealthBack,
-                color: Palette.bossHealthBar,
-              ),
+                );
+              },
             ),
           ],
         );
@@ -334,45 +514,108 @@ class _BossBar extends StatelessWidget {
   }
 }
 
-/// A thin bar for one layer of boss armour, named so the player knows what
-/// they are chewing through rather than watching an anonymous second bar.
+/// The boss's own health, as the one heavy bar on the screen.
+///
+/// Thick, hard cornered at the ends and outlined, so it reads as a gauge
+/// rather than as one more thin line in a heads up display that already has
+/// several. Measured rather than laid out as a fraction, so the last sliver
+/// of a boss is still a visible sliver.
+class _HealthBar extends StatelessWidget {
+  const _HealthBar({required this.value});
+
+  final double value;
+
+  @override
+  Widget build(BuildContext context) {
+    final fraction = value.clamp(0.0, 1.0);
+    return Container(
+      height: Metrics.bossHealthBarHeight,
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: Palette.uiBackground,
+        borderRadius: BorderRadius.circular(Metrics.bossHealthBarHeight / 2),
+        border: Border.all(color: Palette.panelEdge, width: 2.5),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final filled = constraints.maxWidth * fraction;
+          return Align(
+            alignment: Alignment.centerLeft,
+            child: Container(
+              width: fraction <= 0
+                  ? 0
+                  : filled.clamp(6.0, constraints.maxWidth),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(
+                  Metrics.bossHealthBarHeight / 2,
+                ),
+                gradient: const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFFFF8FA8), Palette.bossHealthBar],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// A thin bar for one layer of boss armour, marked with an icon so the player
+/// knows what they are chewing through rather than watching an anonymous
+/// second bar.
 class _ArmourBar extends StatelessWidget {
   const _ArmourBar({
     required this.value,
     required this.tint,
+    required this.icon,
     required this.label,
   });
 
   final double value;
   final Color tint;
+  final IconData icon;
+
+  /// Read out by a screen reader, and the reason the icon can stay wordless.
   final String label;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        SizedBox(
-          width: Metrics.bossArmourLabelWidth,
-          child: Text(
-            label,
-            style: AppType.hudSmall.copyWith(
-              color: tint,
-              fontSize: Metrics.bossArmourLabelSize,
+    final fraction = value.clamp(0.0, 1.0);
+    return Semantics(
+      label: label,
+      value: '${(fraction * 100).round()} percent',
+      child: Row(
+        children: [
+          Icon(icon, size: 15, color: fraction > 0 ? tint : Palette.uiLocked),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Container(
+              height: Metrics.bossArmourBarHeight + 4,
+              padding: const EdgeInsets.all(1.5),
+              decoration: BoxDecoration(
+                color: Palette.uiBackground,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Palette.uiPanelLight, width: 2),
+              ),
+              child: LayoutBuilder(
+                builder: (context, constraints) => Align(
+                  alignment: Alignment.centerLeft,
+                  child: Container(
+                    width: constraints.maxWidth * fraction,
+                    decoration: BoxDecoration(
+                      color: tint,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
-        ),
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(3),
-            child: LinearProgressIndicator(
-              value: value,
-              minHeight: Metrics.bossArmourBarHeight,
-              backgroundColor: Palette.bossHealthBack,
-              color: tint,
-            ),
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

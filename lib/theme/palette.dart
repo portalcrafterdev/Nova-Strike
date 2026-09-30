@@ -8,10 +8,15 @@ class Palette {
   const Palette._();
 
   // Background.
-  static const Color spaceDeep = Color(0xFF04060F);
-  static const Color spaceMid = Color(0xFF0A1026);
-  static const Color nebulaA = Color(0x332B4CFF);
-  static const Color nebulaB = Color(0x2AFF3D9A);
+  //
+  // Violet rather than the near black this started as. A bullet hell still
+  // needs a dark sky for the bullets to read against, so this is only lifted
+  // as far as it can go while keeping a pale bullet obviously brighter than
+  // what is behind it. What it buys is a game that does not look bleak.
+  static const Color spaceDeep = Color(0xFF120A30);
+  static const Color spaceMid = Color(0xFF2A1462);
+  static const Color nebulaA = Color(0x335E3FD6);
+  static const Color nebulaB = Color(0x2AFF6FB5);
   static const Color starFar = Color(0x66A9C7FF);
   static const Color starMid = Color(0xAACFE3FF);
   static const Color starNear = Color(0xFFFFFFFF);
@@ -139,16 +144,40 @@ class Palette {
 
   /// The bracket that marks where the next wave is about to arrive.
   static const Color warning = Color(0xFFFFC24D);
-  static const Color uiBackground = Color(0xFF070B16);
-  static const Color uiPanel = Color(0xFF111A2E);
-  static const Color uiPanelLight = Color(0xFF1B2740);
-  static const Color uiAccent = Color(0xFF7FE7FF);
+  static const Color uiBackground = Color(0xFF140B34);
+  static const Color uiPanel = Color(0xFF2A1A63);
+  static const Color uiPanelLight = Color(0xFF3B2680);
+  static const Color uiAccent = Color(0xFF8AF0FF);
   static const Color uiAccentWarm = Color(0xFFFFD166);
-  static const Color uiText = Color(0xFFEAF2FF);
-  static const Color uiTextDim = Color(0xFF8FA0BF);
-  static const Color uiLocked = Color(0x4044507F);
-  static const Color star = Color(0xFFFFD166);
-  static const Color starEmpty = Color(0xFF2A3450);
+  static const Color uiText = Color(0xFFFFFFFF);
+
+  /// Between [uiText] and [uiTextDim]. For a label that is still being read
+  /// rather than glanced at, such as the one under a tile.
+  static const Color uiTextSoft = Color(0xFFD6C9FF);
+
+  static const Color uiTextDim = Color(0xFF9B88DC);
+
+  /// A label on something that cannot be tapped yet.
+  static const Color uiTextLocked = Color(0xFF6C59AC);
+
+  /// Ink on a lit fill.
+  ///
+  /// The one action on a screen is now a bright amber, and white on amber is
+  /// the single pairing in this palette that fails to read. Anything sitting
+  /// on [panelFillLit] takes this instead.
+  static const Color uiInkOnLit = Color(0xFF452500);
+
+  static const Color uiLocked = Color(0x406C59AC);
+  static const Color star = Color(0xFFFFC93D);
+  static const Color starEmpty = Color(0xFF3A2A72);
+
+  // The lives on the heads up display. Big, round and obviously a heart,
+  // because a row of small ticks is the last thing a child reads on a screen
+  // with forty things moving on it.
+  static const Color heartFull = Color(0xFFFF5C7A);
+  static const Color heartFullEdge = Color(0xFF7A1330);
+  static const Color heartEmpty = Color(0xFF2E1D63);
+  static const Color heartEmptyEdge = Color(0xFF4A3390);
 
   // Menu surfaces.
   //
@@ -159,31 +188,64 @@ class Palette {
 
   /// A panel at rest is lit from above, so it carries a gradient rather than a
   /// flat fill. Two stops, top and bottom.
-  static const Color panelFill = Color(0xFF17213A);
-  static const Color panelFillLow = Color(0xFF0D1424);
+  static const Color panelFill = Color(0xFF2A1A63);
+  static const Color panelFillLow = Color(0xFF241458);
 
   /// The one lit action on a screen. Bright enough to be the thing the eye
   /// lands on without another colour entering the palette.
-  static const Color panelFillLit = Color(0xFF2C7FA6);
-  static const Color panelFillLitLow = Color(0xFF17506B);
+  static const Color panelFillLit = Color(0xFFFFC63D);
+  static const Color panelFillLitLow = Color(0xFFF5B324);
 
-  /// The hairline that catches the light along an edge.
-  static const Color panelEdge = Color(0x59A8C8E8);
-  static const Color panelEdgeLit = Color(0xFF7FE7FF);
+  /// The second and third button colours.
+  ///
+  /// Three fills, and each one means something: amber is the way forward,
+  /// pink is the other way to play, teal is the setting you are on. Anything
+  /// that is none of those stays the violet panel, which is most of the
+  /// screen. A fourth colour would stop the first three meaning anything.
+  static const Color panelFillFun = Color(0xFFFF6FB5);
+  static const Color panelFillFunLow = Color(0xFFF55BA6);
+  static const Color panelLedgeFun = Color(0xFFC23C82);
+  static const Color uiInkOnFun = Color(0xFF4A0B2B);
+
+  static const Color panelFillGo = Color(0xFF45E0D0);
+  static const Color panelFillGoLow = Color(0xFF32CFBF);
+  static const Color panelLedgeGo = Color(0xFF14A394);
+  static const Color uiInkOnGo = Color(0xFF073B36);
+
+  /// The solid band under a button.
+  ///
+  /// This is what replaced the hairline edge, and it is the change that makes
+  /// a control look pressable rather than drawn. It is a flat offset shadow
+  /// with no blur, so it reads as the side of a physical key.
+  static const Color panelLedge = Color(0xFF170D40);
+  static const Color panelLedgeLit = Color(0xFFC77F00);
+
+  /// The border round a panel. Solid now rather than a hairline, because a
+  /// thick outline is what makes a shape read as a toy.
+  static const Color panelEdge = Color(0xFF533AA8);
+  static const Color panelEdgeLit = Color(0xFFFFD97A);
 
   /// What the lit action and the title throw off. Used as a shadow colour, so
   /// it carries its own alpha rather than being faded at the call site.
-  static const Color glow = Color(0x557FE7FF);
+  static const Color glow = Color(0x55FFC63D);
+
+  /// The soft shadow a control casts on the sky below its ledge.
+  ///
+  /// Deep violet rather than black. Black over this background does not read
+  /// as shade, it reads as dirt: the sky is a saturated purple, and an
+  /// unsaturated grey laid over it kills the colour instead of darkening it.
+  static const Color shadowAmbient = Color(0x8C0A0420);
 
   /// The two clouds behind a menu. Deeper than the ones the levels are flown
   /// through, because a menu holds still and can carry more colour than a
   /// screen with forty things moving on it.
-  static const Color menuNebulaA = Color(0x662B4CFF);
-  static const Color menuNebulaB = Color(0x4CFF3D9A);
+  static const Color menuNebulaA = Color(0x665E3FD6);
+  static const Color menuNebulaB = Color(0x4CFF6FB5);
 
   /// How dark the edges of a menu go, so the middle of the screen stays the
-  /// part the eye lands on.
-  static const Color vignette = Color(0xCC02040A);
+  /// part the eye lands on. Lighter than it was, because the sky it is closing
+  /// in on is no longer nearly black to start with.
+  static const Color vignette = Color(0xAA140B34);
 }
 
 /// Layout and visual timing constants.
@@ -215,8 +277,11 @@ class Metrics {
   /// How far up from the bottom of the screen the line at z zero sits.
   ///
   /// The ship starts on that line, so it needs room below it to be pulled
-  /// back into as well as room above to climb into.
-  static const double laneOrigin = 150;
+  /// back into as well as room above to climb into. Only as much room as the
+  /// pull back actually uses, though: every unit beyond that is dead screen
+  /// under the ship, which on a portrait phone is the band a thumb is already
+  /// covering and the last place worth spending height.
+  static const double laneOrigin = 100;
 
   /// How far the ship may fly from the middle, left and right.
   static const double playHalfWidth = 120;
@@ -225,7 +290,10 @@ class Metrics {
   ///
   /// A vertical shooter lives or dies on this. Too small and the ship is on
   /// rails; too large and the player can sit on top of the spawn line.
-  static const double playerBandBack = -48;
+  /// Pulled in with [laneOrigin]. The retreat and the room kept for it are
+  /// one number seen from two sides, and moving the line down without moving
+  /// this drops the ship through the bottom of the screen.
+  static const double playerBandBack = -20;
   static const double playerBandForward = 170;
 
   /// A guard on the axis the game does not use.
@@ -314,6 +382,7 @@ class Metrics {
   static const double powerUpRadius = 8;
   static const double coinRadius = 5;
   static const double shieldRadius = 24;
+
   /// Half width of the column the beam burns, in world units. The look below
   /// is measured against it, so what is drawn and what is hit stay in step.
   static const double laserWidth = 9;
@@ -434,13 +503,18 @@ class Metrics {
   static const double slowMotionScale = 0.35;
   static const double slowMotionDuration = 0.7;
   static const double invulnerabilityBlinkRate = 12;
-  static const double bossHealthBarHeight = 10;
 
-  /// The pod and shield bars above it. Thinner than the health bar, because
+  /// The boss's own bar. Thick enough to read as a gauge: at ten pixels it
+  /// was one more thin line on a display that already had several.
+  static const double bossHealthBarHeight = 22;
+
+  /// The pod and shield bars under it. Thinner than the health bar, because
   /// they are what stands in front of the fight rather than the fight itself.
-  static const double bossArmourBarHeight = 5;
-  static const double bossArmourLabelWidth = 52;
-  static const double bossArmourLabelSize = 9;
+  ///
+  /// They lost their written labels to a pair of icons, which is what let them
+  /// sit side by side on one line instead of stacking and pushing the play
+  /// area down every time a boss had both.
+  static const double bossArmourBarHeight = 7;
   static const double bossHealthBarTop = 24;
 
   /// Height of the dark band drawn behind the top of the display, below the
@@ -449,6 +523,22 @@ class Metrics {
   /// across the text and neither one reads.
   static const double hudBandHeight = 104;
 
+  /// Added to it during a boss fight, which puts a name, a phase and up to two
+  /// armour bars above the play area.
+  static const double hudBandBossExtra = 84;
+
+  /// The readout pills across the top of the play area.
+  ///
+  /// Shorter than the 46 the menu uses and outlined at 2 rather than 3: these
+  /// sit over the game rather than on a page of their own, and a menu weight
+  /// outline at this height closes the pill up until it reads as a solid bar.
+  static const double hudPillHeight = 30;
+  static const double hudPillRound = 15;
+  static const double hudPillEdge = 2;
+
+  /// The level pill, which is the one readout that names where you are.
+  static const double hudLevelPillHeight = 38;
+
   /// How opaque the solid part of that band is. Enough to read white text over
   /// a red enemy, not so much that the enemy disappears behind it.
   static const double hudBandAlpha = 0.72;
@@ -456,6 +546,23 @@ class Metrics {
   /// Where the band starts fading out, as a fraction of its height. The fade
   /// is what stops a ship crossing a visible hard edge on its way in.
   static const double hudBandFadeStart = 0.55;
+
+  /// How far inside the side edges an enemy has to be before the first run
+  /// lesson will point at it.
+  static const double enemyMarkInset = 28;
+
+  /// And how far down, as a fraction of the screen.
+  ///
+  /// Well below the display rather than just clear of it. Measured from the
+  /// bottom of the display, the mark fires on the frame an enemy first clips
+  /// the top corner: it is technically on screen, it is behind the hand that
+  /// is pointing at it, and because the game freezes on that same frame the
+  /// player is shown a ring in the corner with apparently nothing in it.
+  static const double enemyMarkTopFraction = 0.30;
+
+  /// And how far up from the bottom. The caption sits low on the glass, so an
+  /// enemy marked down there would have the explanation laid over it.
+  static const double enemyMarkClearance = 300;
 
   /// How far below the top of the world a boss settles.
   ///
@@ -497,22 +604,70 @@ class Metrics {
   /// Corner radius used where a panel is rounded rather than chamfered.
   static const double panelRadius = 14;
 
-  /// How far the cut corners of a panel run in.
+  /// How round the corners of a panel are.
   ///
-  /// All four, equally. Cutting only two made a button look like it had been
-  /// knocked out of square rather than chamfered on purpose.
-  static const double panelBevel = 13;
+  /// This replaced a chamfer. A cut corner reads as machined, which is exactly
+  /// the wrong note: the whole interface is meant to look moulded. All four
+  /// corners, equally.
+  static const double panelRound = 26;
 
-  /// Width of the lit bar down the leading edge of a button.
-  static const double panelBar = 4;
+  /// How high a control floats above the sky, as the offset of the one soft
+  /// shadow it casts.
+  ///
+  /// There used to be a solid coloured band here as well, drawn as the side of
+  /// a key. It was removed: under every button it read as a second edge
+  /// fighting the light on top, and under the amber one it read as a stripe of
+  /// dirt.
+  static const double liftDepth = 7;
+
+  /// The same, under a small control, where the full height looks clumsy.
+  static const double liftDepthSmall = 5;
+
+  /// What that drops to while the control is held.
+  ///
+  /// Not zero. The shadow closing right up is what says the button has been
+  /// pushed onto the screen, and a shadow that vanishes says it has left it.
+  static const double liftPressed = 2;
+
+  /// How far the face itself travels while held, and the room kept below it
+  /// for that to happen in.
+  ///
+  /// Small. With no band to sink onto, a long travel reads as the button
+  /// sliding rather than being pressed.
+  static const double pressSink = 4;
+
+  /// How long the face takes to travel down, and back.
+  ///
+  /// Short enough to feel like the button answered the finger rather than
+  /// thought about it.
+  static const Duration pressFor = Duration(milliseconds: 90);
+
+  /// The corner on a button.
+  ///
+  /// Rounder than a panel. A panel is a surface things sit on and wants a
+  /// quiet edge; a button is an object meant to be grabbed, and the fuller
+  /// corner is what makes it look grabbable.
+  static const double buttonRound = 30;
+
+  /// Smallest comfortable target. Everything tappable is checked against it.
+  static const double tapTarget = 56;
+
+  /// Height of a way into the game on the menu.
+  ///
+  /// One number for both of them. PLAY and ENDLESS started as two heights
+  /// written at the call site and drifted apart, which read as PLAY being
+  /// swollen rather than as ENDLESS being secondary. What makes PLAY the main
+  /// action is the amber fill and the glow, not being taller than its
+  /// neighbour.
+  static const double menuActionHeight = 70;
 
   /// The ship badge above the game name, and how much of it fills its box.
   static const double shipMarkSize = 132;
   static const double shipMarkFit = 92;
 
-  /// The cut on a level tile, which is far smaller than a button and needs a
-  /// cut to match.
-  static const double tileBevel = 8;
+  /// The corner on a level tile. A tile is close to square, so it takes a
+  /// rounder corner than a button before it starts to look like a circle.
+  static const double tileBevel = 20;
 
   /// How far the lit action's glow reaches.
   static const double panelGlowBlur = 24;
